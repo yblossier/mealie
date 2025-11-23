@@ -21,6 +21,7 @@
       v-model="inputVal"
       :class="label == '' ? '' : 'mt-5'"
       :label="label"
+      @keydown="handleKeydown"
       auto-grow
       density="compact"
       rows="4"
@@ -83,9 +84,53 @@ export default defineNuxtComponent({
         context.emit("update:modelValue", val);
       },
     });
+
+    function wrapSelection(
+      textarea: HTMLTextAreaElement,
+      wrapperStart: string,
+      wrapperEnd: string,
+    ) {
+      const { selectionStart, selectionEnd } = textarea;
+      const value = inputVal.value ?? "";
+
+      const selectedText = value.slice(selectionStart, selectionEnd) || "";
+      const newText = `${value.slice(0, selectionStart)}${wrapperStart}${selectedText}${wrapperEnd}${value.slice(selectionEnd)}`;
+
+      const newSelectionStart = selectionStart + wrapperStart.length;
+      const newSelectionEnd = newSelectionStart + selectedText.length;
+
+      inputVal.value = newText;
+
+      nextTick(() => {
+        textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
+      });
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      const isShortcut = event.metaKey || event.ctrlKey;
+      const target = event.target;
+
+      if (!isShortcut || !(target instanceof HTMLTextAreaElement)) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "b") {
+        event.preventDefault();
+        wrapSelection(target, "**", "**");
+      }
+      else if (key === "i") {
+        event.preventDefault();
+        wrapSelection(target, "*", "*");
+      }
+      else if (key === "u") {
+        event.preventDefault();
+        wrapSelection(target, "<u>", "</u>");
+      }
+    }
     return {
       previewState,
       inputVal,
+      handleKeydown,
     };
   },
 });
