@@ -22,6 +22,19 @@ class GroupPreferencesModel(SqlAlchemyBase, BaseMixins):
     private_group: Mapped[bool | None] = mapped_column(sa.Boolean, default=True)
     show_announcements: Mapped[bool] = mapped_column(sa.Boolean, default=True)
 
+    # Configuration tables and tool suppliers
+    default_table_page_size: Mapped[int] = mapped_column(sa.Integer, default=15, server_default="15")
+    tool_suppliers: Mapped[list | None] = mapped_column(sa.JSON, default=None)
+    show_tool_supplier_links: Mapped[bool] = mapped_column(sa.Boolean, default=True, server_default=sa.true())
+
+    # Nutrition APIs
+    off_mode: Mapped[str] = mapped_column(sa.String, default="prod", server_default="prod")
+    off_app_name: Mapped[str | None] = mapped_column(sa.String, default=None)
+    off_app_version: Mapped[str | None] = mapped_column(sa.String, default=None)
+    off_app_uuid: Mapped[str | None] = mapped_column(sa.String, default=None)
+    usda_api_enabled: Mapped[bool] = mapped_column(sa.Boolean, default=True, server_default=sa.true())
+    usda_api_key: Mapped[str | None] = mapped_column(sa.String, default=None)
+
     # Deprecated (see household preferences)
     first_day_of_week: Mapped[int | None] = mapped_column(sa.Integer, default=0)
     recipe_public: Mapped[bool | None] = mapped_column(sa.Boolean, default=True)

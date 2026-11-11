@@ -145,6 +145,13 @@
               <InputColor v-model="model[inputField.varName]" />
             </div>
           </v-col>
+          <v-col
+            v-if="$slots[`after-${inputField.varName}`]"
+            :cols="12"
+            class="px-2"
+          >
+            <slot :name="`after-${inputField.varName}`" />
+          </v-col>
         </template>
       </v-row>
     </v-card>

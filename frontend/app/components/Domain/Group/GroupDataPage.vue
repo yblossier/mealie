@@ -18,8 +18,16 @@
         v-model:is-valid="createFormValid"
         :items="createForm.items"
         class="py-2"
-      />
+      >
+        <template v-for="fieldSlot in createFieldSlots" #[fieldSlot.target]>
+          <slot :name="fieldSlot.name" />
+        </template>
+      </AutoForm>
+      <slot name="create-dialog-bottom" />
     </div>
+    <template v-if="$slots['create-dialog-custom-action']" #custom-card-action>
+      <slot name="create-dialog-custom-action" />
+    </template>
   </BaseDialog>
 
   <!-- Edit Dialog -->
@@ -41,7 +49,12 @@
         v-model:is-valid="editFormValid"
         :items="editForm.items"
         class="py-2"
-      />
+      >
+        <template v-for="fieldSlot in editFieldSlots" #[fieldSlot.target]>
+          <slot :name="fieldSlot.name" />
+        </template>
+      </AutoForm>
+      <slot name="edit-dialog-bottom" />
     </div>
     <template #custom-card-action>
       <slot name="edit-dialog-custom-action" />
@@ -106,10 +119,13 @@
     :table-config="tableConfig"
     :data="data || []"
     :bulk-actions="bulkActions"
+    :row-actions="rowActions"
     :initial-sort="initialSort"
+    :items-per-page="itemsPerPage"
     @edit-one="editEventHandler"
     @delete-one="deleteEventHandler"
     @bulk-action="handleBulkAction"
+    @row-action="(event: string, item: any) => emit('row-action', event, item)"
   >
     <template
       v-for="slotName in itemSlotNames"
@@ -146,6 +162,7 @@ const emit = defineEmits<{
   (e: "deleteMany", ids: string[]): void;
   (e: "create-one" | "edit-one", data: any): void;
   (e: "bulk-action", event: string, items: any[]): void;
+  (e: "row-action", event: string, item: any): void;
 }>();
 
 const tableHeaders = defineModel<TableHeaders[]>("tableHeaders", { required: true });
@@ -185,9 +202,17 @@ const props = defineProps({
     type: Array as PropType<BulkAction[]>,
     required: true,
   },
+  rowActions: {
+    type: Array as PropType<BulkAction[]>,
+    default: () => [],
+  },
   initialSort: {
     type: String,
     default: "name",
+  },
+  itemsPerPage: {
+    type: Number,
+    default: 15,
   },
   onDeleteDialogOpen: {
     type: Function as PropType<(items: any[]) => Promise<void>>,
@@ -210,6 +235,14 @@ function handleBulkAction(event: string, items: any[]) {
 const createFormValid = ref(false);
 const editFormValid = ref(false);
 const itemSlotNames = computed(() => Object.keys(slots).filter(slotName => slotName.startsWith("item.")));
+// "create-field-after-<field>" / "edit-field-after-<field>" are passed to the form as "after-<field>"
+function fieldSlots(prefix: string) {
+  return Object.keys(slots)
+    .filter(slotName => slotName.startsWith(`${prefix}after-`))
+    .map(slotName => ({ name: slotName, target: slotName.slice(prefix.length) }));
+}
+const createFieldSlots = computed(() => fieldSlots("create-field-"));
+const editFieldSlots = computed(() => fieldSlots("edit-field-"));
 const editEventHandler = (item: any) => {
   editForm.value.data = { ...item };
   editDialog.value = true;

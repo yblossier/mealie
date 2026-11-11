@@ -20,6 +20,18 @@ class NoteReference(MealieModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ToolReference(MealieModel):
+    reference_id: UUID4 | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StepReference(MealieModel):
+    """Another step of the recipe whose result is used as a base by the step"""
+
+    reference_id: UUID4 | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RecipeStep(MealieModel):
     id: UUID | None = Field(default_factory=uuid4)
     title: str | None = ""  # This is the section title!!!
@@ -27,11 +39,16 @@ class RecipeStep(MealieModel):
     text: str
     ingredient_references: list[IngredientReferences] = []
     note_references: list[NoteReference] = []
+    tool_references: list[ToolReference] = []
+    step_references: list[StepReference] = []
     model_config = ConfigDict(from_attributes=True)
 
     duration_seconds: int | None = Field(default=None, ge=1, le=2147483647, strict=True)
+    cooling_seconds: int | None = Field(default=None, ge=1, le=2147483647, strict=True)
+    cooking_seconds: int | None = Field(default=None, ge=1, le=2147483647, strict=True)
+    rest_seconds: int | None = Field(default=None, ge=1, le=2147483647, strict=True)
 
-    @field_validator("duration_seconds", mode="before")
+    @field_validator("duration_seconds", "cooling_seconds", "cooking_seconds", "rest_seconds", mode="before")
     @classmethod
     def normalize_duration(cls, value: Any) -> Any:
         if isinstance(value, bool):

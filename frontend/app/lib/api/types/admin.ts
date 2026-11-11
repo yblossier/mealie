@@ -119,8 +119,10 @@ export interface MaintenanceStorageDetails {
 }
 export interface MaintenanceSummary {
   dataDirSize: string;
+  databaseSize: string;
   cleanableImages: number;
   cleanableDirs: number;
+  cleanableDatabaseRows: number;
 }
 export interface MigrationFile {
   name: string;

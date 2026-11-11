@@ -81,6 +81,9 @@ class User(SqlAlchemyBase, BaseMixins):
     show_announcements: Mapped[bool] = mapped_column(Boolean, default=True)
     last_read_announcement: Mapped[str | None] = mapped_column(String)
 
+    # Overrides the group default of the configuration tables when set
+    table_page_size: Mapped[int | None] = mapped_column(Integer, default=None)
+
     # Permissions
     can_manage_household: Mapped[bool | None] = mapped_column(Boolean, default=False)
     can_manage: Mapped[bool | None] = mapped_column(Boolean, default=False)

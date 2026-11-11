@@ -20,10 +20,12 @@ import { GroupMigrationApi } from "./user/group-migrations";
 import { GroupReportsApi } from "./user/group-reports";
 import { ShoppingApi } from "./user/group-shopping-lists";
 import { MultiPurposeLabelsApi } from "./user/group-multiple-purpose-labels";
+import { AllergensApi } from "./user/group-allergens";
 import { GroupEventNotifierApi } from "./user/group-event-notifier";
 import { MealPlanRulesApi } from "./user/group-mealplan-rules";
 import { GroupDataSeederApi } from "./user/group-seeder";
 import { AIProvidersAPI } from "./user/group-ai-providers";
+import { FoodCompositionAPI } from "./user/group-food-composition";
 import type { ApiRequestInstance } from "~/lib/api/types/non-generated";
 
 export class UserApiClient {
@@ -49,10 +51,12 @@ export class UserApiClient {
   public tools: ToolsApi;
   public shopping: ShoppingApi;
   public multiPurposeLabels: MultiPurposeLabelsApi;
+  public allergens: AllergensApi;
   public groupEventNotifier: GroupEventNotifierApi;
   public upload: UploadFile;
   public seeders: GroupDataSeederApi;
   public aiProviders: AIProvidersAPI;
+  public foodComposition: FoodCompositionAPI;
 
   constructor(requests: ApiRequestInstance) {
     // Recipes
@@ -79,8 +83,10 @@ export class UserApiClient {
     this.groupReports = new GroupReportsApi(requests);
     this.shopping = new ShoppingApi(requests);
     this.multiPurposeLabels = new MultiPurposeLabelsApi(requests);
+    this.allergens = new AllergensApi(requests);
     this.seeders = new GroupDataSeederApi(requests);
     this.aiProviders = new AIProvidersAPI(requests);
+    this.foodComposition = new FoodCompositionAPI(requests);
 
     // Admin
 

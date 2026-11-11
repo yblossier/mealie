@@ -7,6 +7,10 @@
 
 export type GroupRecipeActionType = "link" | "post";
 export type WebhookType = "mealplan";
+export type IngredientFoodNutritionSource = "ciqual" | "usda" | "off" | "ai";
+export type ToolCategory = "dishes" | "linen" | "appliance" | "utensils" | "tableware" | "cutlery";
+export type DishShape = "rectangular" | "round";
+export type DishUsage = "induction" | "gas" | "oven" | "microwave";
 
 export interface EmailInvitation {
   email: string;
@@ -355,6 +359,12 @@ export interface IngredientFoodOut {
   aliases: IngredientFoodAlias[];
   substitutions: IngredientFoodSubstitution[];
   householdsWithIngredientFood: string[];
+  allergens: AllergenSummary[];
+  nutrition: Nutrition | null;
+  averageWeight: number | null;
+  nutritionSource: IngredientFoodNutritionSource | null;
+  nutritionReferenceCode: string | null;
+  nutritionReferenceName: string | null;
   label: MultiPurposeLabelSummary | null;
   recipeCount: number;
   createdAt: string | null;
@@ -365,13 +375,40 @@ export interface IngredientFoodAlias {
 }
 export interface IngredientFoodSubstitution {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
   substituteFood?: IngredientFoodSummary | null;
+  additionalFoods?: IngredientFoodSummary[];
 }
 export interface IngredientFoodSummary {
   id: string;
   name: string;
   pluralName: string | null;
+}
+export interface AllergenSummary {
+  id: string;
+  name: string;
+  code: string | null;
+}
+export interface Nutrition {
+  calories?: string | null;
+  carbohydrateContent?: string | null;
+  cholesterolContent?: string | null;
+  fatContent?: string | null;
+  fiberContent?: string | null;
+  proteinContent?: string | null;
+  saturatedFatContent?: string | null;
+  sodiumContent?: string | null;
+  sugarContent?: string | null;
+  transFatContent?: string | null;
+  unsaturatedFatContent?: string | null;
+  calciumContent?: string | null;
+  ironContent?: string | null;
+  magnesiumContent?: string | null;
+  potassiumContent?: string | null;
+  vitaminAContent?: string | null;
+  vitaminCContent?: string | null;
+  vitaminDContent?: string | null;
 }
 export interface MultiPurposeLabelSummary {
   name: string;
@@ -391,12 +428,19 @@ export interface IngredientFoodCreate {
   aliases?: IngredientFoodAliasCreate[];
   substitutions?: IngredientFoodSubstitutionCreate[];
   householdsWithIngredientFood?: string[];
+  allergens?: AllergenSummary[];
+  nutrition?: Nutrition | null;
+  averageWeight?: number | null;
+  nutritionSource?: IngredientFoodNutritionSource | null;
+  nutritionReferenceCode?: string | null;
+  nutritionReferenceName?: string | null;
 }
 export interface IngredientFoodAliasCreate {
   name: string;
 }
 export interface IngredientFoodSubstitutionCreate {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
 }
 export interface RecipeDraft {
@@ -413,9 +457,13 @@ export interface RecipeDraft {
   totalTime?: string | null;
   prepTime?: string | null;
   performTime?: string | null;
+  coolingTime?: string | null;
+  restTime?: string | null;
   totalTimeSeconds?: number | null;
   prepTimeSeconds?: number | null;
   performTimeSeconds?: number | null;
+  coolingTimeSeconds?: number | null;
+  restTimeSeconds?: number | null;
   description?: string | null;
   recipeCategory?: CategoryDraft[];
   tags?: TagDraft[];
@@ -466,7 +514,12 @@ export interface RecipeStep {
   text: string;
   ingredientReferences?: IngredientReferences[];
   noteReferences?: NoteReference[];
+  toolReferences?: ToolReference[];
+  stepReferences?: StepReference[];
   durationSeconds?: number | null;
+  coolingSeconds?: number | null;
+  cookingSeconds?: number | null;
+  restSeconds?: number | null;
 }
 export interface IngredientReferences {
   referenceId?: string | null;
@@ -474,26 +527,21 @@ export interface IngredientReferences {
 export interface NoteReference {
   referenceId?: string | null;
 }
-export interface Nutrition {
-  calories?: string | null;
-  carbohydrateContent?: string | null;
-  cholesterolContent?: string | null;
-  fatContent?: string | null;
-  fiberContent?: string | null;
-  proteinContent?: string | null;
-  saturatedFatContent?: string | null;
-  sodiumContent?: string | null;
-  sugarContent?: string | null;
-  transFatContent?: string | null;
-  unsaturatedFatContent?: string | null;
+export interface ToolReference {
+  referenceId?: string | null;
+}
+export interface StepReference {
+  referenceId?: string | null;
 }
 export interface RecipeSettings {
   public?: boolean;
   showNutrition?: boolean;
   showAssets?: boolean;
+  showAllergens?: boolean;
   landscapeView?: boolean;
   disableComments?: boolean;
   locked?: boolean;
+  thermomix?: boolean;
 }
 export interface RecipeAsset {
   name: string;
@@ -522,8 +570,10 @@ export interface RecipeCommentUser {
 }
 export interface RecipeIngredientSubstitution {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
   substituteFood?: IngredientFoodSummary | null;
+  additionalFoods?: IngredientFoodSummary[];
 }
 export interface ShoppingListAddRecipeParamsBulk {
   recipeIncrementQuantity?: number;
@@ -716,9 +766,13 @@ export interface RecipeSummary {
   totalTime: string | null;
   prepTime: string | null;
   performTime: string | null;
+  coolingTime: string | null;
+  restTime: string | null;
   totalTimeSeconds: number | null;
   prepTimeSeconds: number | null;
   performTimeSeconds: number | null;
+  coolingTimeSeconds: number | null;
+  restTimeSeconds: number | null;
   description: string | null;
   recipeCategory: CategoryOut[];
   tags: TagOut[];
@@ -751,6 +805,15 @@ export interface ToolOut {
   slug: string;
   recipeCount: number;
   householdsWithTool: string[];
+  category: ToolCategory;
+  image: string | null;
+  dishShape: DishShape | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  diameter: number | null;
+  usages: DishUsage[];
+  parentId: string | null;
 }
 export interface ShoppingListRemoveRecipeParams {
   recipeDecrementQuantity?: number;

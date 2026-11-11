@@ -10,13 +10,16 @@ Each organizer has the same shapes:
   resolves or creates it
 """
 
-from typing import Any, ClassVar
+from enum import StrEnum
+from pathlib import Path
+from typing import Annotated, Any, ClassVar
 
-from pydantic import UUID4, ConfigDict, field_validator
+from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
 from slugify import slugify
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
 
+from mealie.core.config import get_app_dirs
 from mealie.db.models.recipe import Tool
 from mealie.schema._mealie import MealieModel
 from mealie.schema._mealie.mealie_model import MealieOutModel
@@ -116,9 +119,71 @@ class TagPagination(PaginationBase):
 # Tools
 
 
+class ToolCategory(StrEnum):
+    """The kind of tool, which also sets the icon it is shown with."""
+
+    dishes = "dishes"
+    linen = "linen"
+    appliance = "appliance"
+    utensils = "utensils"
+    tableware = "tableware"
+    cutlery = "cutlery"
+
+
+class DishShape(StrEnum):
+    rectangular = "rectangular"
+    round = "round"
+
+
+class DishUsage(StrEnum):
+    """A heat source a dish can be used on or in."""
+
+    induction = "induction"
+    gas = "gas"
+    oven = "oven"
+    microwave = "microwave"
+
+
+Centimeters = Annotated[float, Field(gt=0, le=1000)]
+
+
 class ToolCreate(MealieModel):
     name: str
     households_with_tool: list[str] = []
+    category: ToolCategory = ToolCategory.utensils
+
+    dish_shape: DishShape | None = None
+    """Only kept for dishes. A round dish is sized by its diameter, any other by length and width."""
+    length: Centimeters | None = None
+    width: Centimeters | None = None
+    height: Centimeters | None = None
+    diameter: Centimeters | None = None
+    usages: list[DishUsage] = []
+    """Only kept for dishes."""
+
+    parent_id: UUID4 | None = None
+    """Only kept for appliances: the appliance this accessory can't be used without."""
+
+    @field_validator("usages", mode="after")
+    @classmethod
+    def dedupe_usages(cls, v: list[DishUsage]) -> list[DishUsage]:
+        return [usage for usage in DishUsage if usage in v]
+
+    @model_validator(mode="after")
+    def drop_fields_of_other_categories(self) -> ToolCreate:
+        if self.category != ToolCategory.dishes:
+            self.dish_shape = None
+            self.length = self.width = self.height = self.diameter = None
+            self.usages = []
+        elif self.dish_shape == DishShape.round:
+            self.length = self.width = None
+        else:
+            self.diameter = None
+
+        if self.category != ToolCategory.appliance:
+            self.parent_id = None
+
+        return self
 
 
 class ToolSave(ToolCreate):
@@ -128,6 +193,33 @@ class ToolSave(ToolCreate):
 class ToolOut(OrganizerOut):
     households_with_tool: list[str] = []
     """Slugs of the households that own this tool."""
+    category: ToolCategory = ToolCategory.utensils
+    image: str | None = None
+    """Cache key of the tool photo, unset when the tool has no photo."""
+
+    dish_shape: DishShape | None = None
+    length: float | None = None
+    width: float | None = None
+    height: float | None = None
+    diameter: float | None = None
+    usages: list[DishUsage] = []
+
+    parent_id: UUID4 | None = None
+    """The appliance this accessory can't be used without."""
+
+    @field_validator("usages", mode="before")
+    def split_usages(cls, v):
+        if isinstance(v, str):
+            return [usage for usage in v.split(",") if usage in DishUsage.__members__]
+        return v or []
+
+    @field_validator("category", mode="before")
+    def default_unknown_category(cls, v):
+        return v if v in ToolCategory.__members__ else ToolCategory.utensils
+
+    @staticmethod
+    def get_directory(tool_id: UUID4 | str) -> Path:
+        return get_app_dirs().TOOLS_DIR / str(tool_id)
 
     @field_validator("households_with_tool", mode="before")
     def convert_households_to_slugs(cls, v):

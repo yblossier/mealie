@@ -33,6 +33,14 @@
       </v-form>
     </div>
 
+    <div class="mb-10">
+      <v-card variant="outlined" style="border-color: lightgray;">
+        <v-card-text>
+          <GroupCiqualSettings />
+        </v-card-text>
+      </v-card>
+    </div>
+
     <div>
       <v-form ref="refGroupAISettingsForm" @submit.prevent="handleAISettingsSubmit">
         <v-card variant="outlined" style="border-color: lightgray;">
@@ -68,6 +76,7 @@
 import GroupPreferencesEditor from "~/components/Domain/Group/GroupPreferencesEditor.vue";
 import GroupAIProviderSettingsEditor from "~/components/Domain/Group/GroupAIProviderSettingsEditor.vue";
 import GroupAIPromptEditor from "~/components/Domain/Group/GroupAIPromptEditor.vue";
+import GroupCiqualSettings from "~/components/Domain/Group/GroupCiqualSettings.vue";
 import { useGroupSelf } from "~/composables/use-groups";
 import { useAIProviders } from "~/composables/use-ai-providers";
 import { alert } from "~/composables/use-toast";

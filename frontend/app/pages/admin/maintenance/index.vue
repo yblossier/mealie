@@ -99,6 +99,7 @@
 
 <script setup lang="ts">
 import { useAdminApi } from "~/composables/api";
+import { alert } from "~/composables/use-toast";
 import type { MaintenanceStorageDetails, MaintenanceSummary } from "~/lib/api/types/admin";
 
 definePageMeta({
@@ -125,8 +126,10 @@ useSeoMeta({
 
 const infoResults = ref<MaintenanceSummary>({
   dataDirSize: i18n.t("about.unknown-version"),
+  databaseSize: i18n.t("about.unknown-version"),
   cleanableDirs: 0,
   cleanableImages: 0,
+  cleanableDatabaseRows: 0,
 });
 
 async function getSummary() {
@@ -135,8 +138,10 @@ async function getSummary() {
 
   infoResults.value = data ?? {
     dataDirSize: i18n.t("about.unknown-version"),
+    databaseSize: i18n.t("about.unknown-version"),
     cleanableDirs: 0,
     cleanableImages: 0,
+    cleanableDatabaseRows: 0,
   };
 
   state.fetchingInfo = false;
@@ -149,12 +154,20 @@ const info = computed(() => {
       value: infoResults.value.dataDirSize,
     },
     {
+      name: i18n.t("admin.maintenance.info-description-database-size"),
+      value: infoResults.value.databaseSize,
+    },
+    {
       name: i18n.t("admin.maintenance.info-description-cleanable-directories"),
       value: infoResults.value.cleanableDirs,
     },
     {
       name: i18n.t("admin.maintenance.info-description-cleanable-images"),
       value: infoResults.value.cleanableImages,
+    },
+    {
+      name: i18n.t("admin.maintenance.info-description-cleanable-database-rows"),
+      value: infoResults.value.cleanableDatabaseRows,
     },
   ];
 });
@@ -210,7 +223,26 @@ async function handleCleanTemp() {
   state.actionLoading = false;
 }
 
+async function handleCleanDatabase() {
+  state.actionLoading = true;
+  const { data } = await adminApi.maintenance.cleanDatabase();
+  state.actionLoading = false;
+
+  if (data) {
+    alert.success(i18n.t("admin.maintenance.action-clean-database-success"));
+    await getSummary();
+  }
+  else {
+    alert.error(i18n.t("admin.maintenance.action-clean-database-error"));
+  }
+}
+
 const actions = [
+  {
+    name: i18n.t("admin.maintenance.action-clean-database-name"),
+    handler: handleCleanDatabase,
+    subtitle: i18n.t("admin.maintenance.action-clean-database-description"),
+  },
   {
     name: i18n.t("admin.maintenance.action-clean-directories-name"),
     handler: handleCleanDirectories,

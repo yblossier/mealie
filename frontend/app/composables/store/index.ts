@@ -1,3 +1,4 @@
+import { resetAllergenStore } from "./use-allergen-store";
 import { resetCategoryStore } from "./use-category-store";
 import { resetFoodStore } from "./use-food-store";
 import { resetHouseholdStore } from "./use-household-store";
@@ -8,6 +9,7 @@ import { resetUnitStore } from "./use-unit-store";
 import { resetCookbookStore } from "./use-cookbook-store";
 import { resetUserStore } from "./use-user-store";
 
+export { useAllergenStore, resetAllergenStore } from "./use-allergen-store";
 export { useCategoryStore, usePublicCategoryStore, useCategoryData, resetCategoryStore } from "./use-category-store";
 export { useFoodStore, usePublicFoodStore, useFoodData, resetFoodStore } from "./use-food-store";
 export { useHouseholdStore, usePublicHouseholdStore, resetHouseholdStore } from "./use-household-store";
@@ -19,6 +21,7 @@ export { useCookbookStore, usePublicCookbookStore, resetCookbookStore } from "./
 export { useUserStore, resetUserStore } from "./use-user-store";
 
 export function clearAllStores() {
+  resetAllergenStore();
   resetCategoryStore();
   resetFoodStore();
   resetHouseholdStore();

@@ -3,12 +3,13 @@ from fastapi.responses import FileResponse
 
 from mealie.core.config import get_app_dirs
 
-from . import media_recipe, media_user
+from . import media_recipe, media_tool, media_user
 
 media_router = APIRouter(prefix="/api/media", tags=["Recipe: Images and Assets"])
 
 media_router.include_router(media_recipe.router)
 media_router.include_router(media_user.router)
+media_router.include_router(media_tool.router)
 
 
 @media_router.get("/docker/validate.txt", response_class=FileResponse)

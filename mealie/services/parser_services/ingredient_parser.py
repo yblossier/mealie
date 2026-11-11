@@ -28,6 +28,7 @@ from mealie.schema.recipe.recipe_ingredient import (
 
 from . import brute
 from ._base import ABCIngredientParser
+from .french_parser import parse_french, should_parse_as_french
 from .parser_utils import extract_quantity_from_string
 
 logger = get_logger(__name__)
@@ -39,6 +40,9 @@ class BruteForceParser(ABCIngredientParser):
     """
 
     async def parse_one(self, ingredient_string: str) -> ParsedIngredient:
+        if should_parse_as_french(ingredient_string):
+            return parse_french(self, ingredient_string)
+
         bfi = brute.parse(ingredient_string, self)
 
         parsed_ingredient = ParsedIngredient(
@@ -290,6 +294,10 @@ class NLPParser(ABCIngredientParser):
         return self.find_ingredient_match(parsed_ingredient)
 
     async def parse_one(self, ingredient_string: str) -> ParsedIngredient:
+        # the CRF model only knows English, French lines go through the French rules instead
+        if should_parse_as_french(ingredient_string):
+            return parse_french(self, ingredient_string)
+
         from ingredient_parser import parse_ingredient
 
         database_units = {}

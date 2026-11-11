@@ -57,7 +57,13 @@ class GroupSelfServiceController(BaseUserController):
 
     @router.put("/preferences", response_model=GroupPreferencesOut, dependencies=[require(Perm.GROUP_MANAGE)])
     def update_group_preferences(self, new_pref: GroupPreferencesUpdate):
-        return self.repos.group_preferences.update(self.group_id, new_pref)
+        data = new_pref.model_dump()
+        if new_pref.usda_api_key is None:
+            # the key is never sent to the clients, so its absence means it's unchanged
+            data.pop("usda_api_key")
+        elif not new_pref.usda_api_key:
+            data["usda_api_key"] = None
+        return self.repos.group_preferences.update(self.group_id, data)
 
     @router.get("/storage", response_model=GroupStorage)
     def get_storage(self):

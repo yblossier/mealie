@@ -17,7 +17,9 @@ from mealie.lang.providers import get_locale_context
 from mealie.schema._mealie import MealieModel
 from mealie.schema._mealie.mealie_model import MealieOutModel, UpdatedAtField
 from mealie.schema._mealie.types import NoneFloat
+from mealie.schema.allergens.allergen import AllergenSummary
 from mealie.schema.recipe.recipe import RecipeDraft
+from mealie.schema.recipe.recipe_nutrition import Nutrition
 from mealie.schema.response.pagination import PaginationBase
 
 INGREDIENT_QTY_PRECISION = 3
@@ -114,10 +116,18 @@ class SubstitutionBase(MealieModel):
     One "may be replaced by" substitution. The substitute food and the note are independently
     optional, but at least one must be present, so a substitution may be another food
     ("chicken broth"), free text ("water and a bouillon cube"), or a food with a caveat.
+
+    A combination of foods ("butter + flour") keeps its first food in substitute_food_id and
+    the others in additional_food_ids, the note then telling how to combine them.
     """
 
     substitute_food_id: UUID4 | None = None
+    additional_food_ids: list[UUID4] = []
     note: str | None = None
+
+    @field_validator("additional_food_ids", mode="before")
+    def remove_empty_additional_food_ids(cls, v):
+        return [food_id for food_id in v if food_id] if isinstance(v, list) else v or []
 
     @field_validator("substitute_food_id", mode="before")
     def convert_empty_id_to_none(cls, v):
@@ -138,7 +148,8 @@ class SubstitutionBase(MealieModel):
     @staticmethod
     def prune(value: Any) -> Any:
         """
-        Drops empty substitutions and de-dupes them by substitute food, keeping the first.
+        Drops empty substitutions and de-dupes them by their whole set of foods, keeping the first:
+        "butter + flour" and "butter + oil" are two substitutions, "butter" alone a third one.
 
         Parents call this before their substitutions validate, because an empty row is a UI
         artifact rather than a client bug, and validate_not_empty rejects it outright.
@@ -148,13 +159,15 @@ class SubstitutionBase(MealieModel):
             return value
 
         pruned = []
-        seen_food_ids: set[str] = set()
+        seen_combinations: set[frozenset[str]] = set()
         for substitution in value:
             if isinstance(substitution, dict):
                 food_id = substitution.get("substituteFoodId", substitution.get("substitute_food_id"))
+                additional_food_ids = substitution.get("additionalFoodIds", substitution.get("additional_food_ids"))
                 note = substitution.get("note")
             else:
                 food_id = getattr(substitution, "substitute_food_id", None)
+                additional_food_ids = getattr(substitution, "additional_food_ids", None)
                 note = getattr(substitution, "note", None)
 
             if isinstance(note, str):
@@ -166,11 +179,12 @@ class SubstitutionBase(MealieModel):
             if food_id:
                 # note-only substitutions have no id to de-dupe on, and repeated notes are legitimate,
                 # so they must not be collapsed together here
-                food_id = str(food_id)
-                if food_id in seen_food_ids:
+                extra_ids = additional_food_ids if isinstance(additional_food_ids, list) else []
+                combination = frozenset([str(food_id), *(str(extra) for extra in extra_ids if extra)])
+                if combination in seen_combinations:
                     continue
 
-                seen_food_ids.add(food_id)
+                seen_combinations.add(combination)
 
             pruned.append(substitution)
 
@@ -182,6 +196,7 @@ class IngredientFoodSubstitutionCreate(SubstitutionBase): ...
 
 class IngredientFoodSubstitution(IngredientFoodSubstitutionCreate):
     substitute_food: IngredientFoodSummary | None = None
+    additional_foods: list[IngredientFoodSummary] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -191,8 +206,20 @@ class RecipeIngredientSubstitutionCreate(SubstitutionBase): ...
 
 class RecipeIngredientSubstitution(RecipeIngredientSubstitutionCreate):
     substitute_food: IngredientFoodSummary | None = None
+    additional_foods: list[IngredientFoodSummary] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IngredientFoodNutritionSource(StrEnum):
+    ciqual = "ciqual"
+    """Anses Ciqual food composition table"""
+    usda = "usda"
+    """USDA FoodData Central"""
+    off = "off"
+    """Open Food Facts, the database of packaged products"""
+    ai = "ai"
+    """Estimated by the AI provider"""
 
 
 class IngredientFoodCreate(UnitFoodBase):
@@ -200,6 +227,18 @@ class IngredientFoodCreate(UnitFoodBase):
     aliases: list[IngredientFoodAliasCreate] = []
     substitutions: list[IngredientFoodSubstitutionCreate] = []
     households_with_ingredient_food: list[str] = []
+    allergens: list[AllergenSummary] = []
+    """Allergens the food contains"""
+    nutrition: Nutrition | None = None
+    """Nutrition facts per 100 g (or 100 ml)"""
+    average_weight: float | None = Field(None, gt=0)
+    """Weight in grams of one piece of the food, used for recipe quantities given without a unit"""
+    nutrition_source: IngredientFoodNutritionSource | None = None
+    """Where the nutrition facts come from; None when they were typed in by hand"""
+    nutrition_reference_code: str | None = None
+    """Code of the food in the composition table the nutrition facts come from"""
+    nutrition_reference_name: str | None = None
+    """Name of the food in the composition table the nutrition facts come from"""
 
     @field_validator("substitutions", mode="before")
     def remove_empty_substitutions(cls, v):
@@ -242,6 +281,11 @@ class IngredientFoodOut(IngredientFoodCreate, MealieOutModel):
             joinedload(IngredientFoodModel.extras),
             joinedload(IngredientFoodModel.label),
             selectinload(IngredientFoodModel.substitutions).joinedload(IngredientFoodSubstitutionModel.substitute_food),
+            selectinload(IngredientFoodModel.substitutions).selectinload(
+                IngredientFoodSubstitutionModel.additional_foods
+            ),
+            selectinload(IngredientFoodModel.allergens),
+            selectinload(IngredientFoodModel.nutrition),
         ]
 
     @field_validator("households_with_ingredient_food", mode="before")
@@ -535,6 +579,134 @@ class IngredientRequest(MealieModel):
 class IngredientFoodMerge(MealieModel):
     from_food: UUID4
     to_food: UUID4
+
+
+class IngredientFoodNutritionEstimateItem(MealieModel):
+    id: UUID4 | None = None
+    """The food being estimated, if it exists, so the estimate is kept in its history"""
+    name: str
+    plural_name: str | None = None
+    description: str | None = None
+
+
+class IngredientFoodNutritionEstimateRequest(MealieModel):
+    foods: list[IngredientFoodNutritionEstimateItem] = Field(..., min_length=1, max_length=50)
+
+
+class IngredientFoodNutritionEstimate(MealieOutModel):
+    nutrition: Nutrition
+    """Nutrition facts per 100 g (or 100 ml)"""
+    average_weight: float | None = None
+    """Weight in grams of one piece of the food, or None when the food isn't counted by the piece"""
+    source: IngredientFoodNutritionSource | None = None
+    """Where the nutrition facts come from, or null when the food was found nowhere"""
+    reference_code: str | None = None
+    """Code of the food in the composition table, when the facts come from one"""
+    reference_name: str | None = None
+
+
+class IngredientFoodNutritionReference(MealieOutModel):
+    """A food of a composition table (Ciqual or USDA), with its nutrition facts per 100 g"""
+
+    source: IngredientFoodNutritionSource
+    code: str
+    name: str
+    nutrition: Nutrition
+    average_weight: float | None = None
+
+
+class IngredientFoodNutritionIssue(MealieModel):
+    code: str
+    """
+    One of `name-mismatch`, `missing-values`, `macronutrients-overflow`, `sugar-over-carbohydrates`,
+    `fat-details-over-fat` and `energy-mismatch`
+    """
+    params: dict[str, str | float] = {}
+
+    def __str__(self) -> str:
+        params = ", ".join(f"{key}={value}" for key, value in self.params.items())
+        return f"{self.code} ({params})" if params else self.code
+
+
+class IngredientFoodNutritionLogStepKind(StrEnum):
+    batch = "batch"
+    """The food was asked with others"""
+    single = "single"
+    """The food was asked on its own, after the answer for the whole list was unusable"""
+    retry = "retry"
+    """The food was asked again on its own, after an inconsistent answer"""
+    lookup = "lookup"
+    """The food was looked up in the composition tables (Ciqual, then USDA)"""
+    open_food_facts = "open_food_facts"
+    """The food was searched in Open Food Facts, after the composition tables"""
+    usda = "usda"
+    """The food was searched in USDA FoodData Central online, after the composition tables"""
+    match = "match"
+    """The AI chose the food among the composition tables' candidates"""
+
+
+class IngredientFoodNutritionLogStep(MealieModel):
+    kind: IngredientFoodNutritionLogStepKind
+    foods_count: int = 1
+    """Number of foods in the request"""
+    response: dict[str, Any] | None = None
+    """Raw answer of the model for this food"""
+    issues: list[IngredientFoodNutritionIssue] = []
+    error: str | None = None
+    kept: bool = False
+    """Whether this answer is the one the result was made from"""
+
+
+class IngredientFoodNutritionLogCorrection(MealieModel):
+    field: str
+    before: float | None = None
+    after: float | None = None
+
+
+class IngredientFoodNutritionLogOrigin(StrEnum):
+    estimate = "estimate"
+    """Estimated from the food form, saved only if the user saves the food"""
+    fill = "fill"
+    """Estimated and saved at once"""
+
+
+class IngredientFoodNutritionLogSave(MealieModel):
+    group_id: UUID4
+    food_id: UUID4
+    origin: IngredientFoodNutritionLogOrigin
+    ai_model: str | None = None
+    """Model of the AI provider that answered"""
+    steps: list[IngredientFoodNutritionLogStep] = []
+    corrections: list[IngredientFoodNutritionLogCorrection] = []
+    result: IngredientFoodNutritionEstimate | None = None
+    error: str | None = None
+
+
+class IngredientFoodNutritionLogOut(IngredientFoodNutritionLogSave, MealieOutModel):
+    id: UUID4
+    created_at: datetime.datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IngredientFoodNutritionFillRequest(MealieModel):
+    food_ids: list[UUID4] = Field(..., min_length=1, max_length=200)
+    overwrite: bool = False
+    """When false, foods that already have nutrition facts and an average weight are skipped"""
+
+
+class IngredientFoodAllergenSuggestRequest(MealieModel):
+    name: str
+    plural_name: str | None = None
+    aliases: list[str] = []
+    description: str | None = None
+
+
+class IngredientFoodAllergenFillRequest(MealieModel):
+    food_ids: list[UUID4] | None = None
+    """The foods to link with their allergens; every food of the group when not given"""
+    overwrite: bool = False
+    """Whether to replace the allergens of the foods that already have some"""
 
 
 class IngredientUnitMerge(MealieModel):

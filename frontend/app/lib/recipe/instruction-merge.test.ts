@@ -39,6 +39,36 @@ describe("mergeSteps", () => {
     expect(steps[0]!.noteReferences).toEqual(refs("n1", "n2"));
   });
 
+  test("keeps linked tools from both steps and restores them on undo", () => {
+    const steps = [
+      step("a", { toolReferences: refs("t1") }),
+      step("b", { toolReferences: refs("t1", "t2") }),
+    ];
+
+    const merge = mergeSteps(steps, 0, 1)!;
+    expect(steps[0]!.toolReferences).toEqual(refs("t1", "t2"));
+
+    undoStepMerge(steps, merge);
+    expect(steps[0]!.toolReferences).toEqual(refs("t1"));
+    expect(steps[1]!.toolReferences).toEqual(refs("t1", "t2"));
+  });
+
+  test("keeps the steps used as a base and points the steps using the source to the merged step", () => {
+    const original = [
+      step("a"),
+      step("b", { stepReferences: refs("a") }),
+      step("c", { stepReferences: refs("a", "b") }),
+      step("d", { stepReferences: refs("c") }),
+    ];
+    const steps = structuredClone(original);
+
+    const merge = mergeSteps(steps, 1, 2)!;
+    expect(steps.map(s => s.stepReferences ?? [])).toEqual([[], refs("a"), refs("b")]);
+
+    undoStepMerge(steps, merge);
+    expect(steps).toEqual(original);
+  });
+
   test("handles steps with no reference arrays", () => {
     const steps = [
       step("a", { ingredientReferences: undefined, noteReferences: undefined }),

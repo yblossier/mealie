@@ -198,6 +198,26 @@
             color="primary"
             @change="updateUser"
           />
+          <v-text-field
+            v-model="tablePageSize"
+            type="number"
+            min="5"
+            max="500"
+            clearable
+            :rules="[validTablePageSize]"
+            :label="$t('user.table-page-size')"
+            :placeholder="String(groupTablePageSize)"
+            persistent-placeholder
+            :hint="$t('user.table-page-size-hint', { size: groupTablePageSize })"
+            persistent-hint
+            density="comfortable"
+            variant="underlined"
+            class="mt-4"
+            style="max-width: 360px;"
+            data-testid="user-table-page-size"
+            @change="updateTablePageSize"
+            @click:clear="updateTablePageSize"
+          />
         </v-card-text>
       </v-card>
       <nuxt-link
@@ -232,6 +252,8 @@ import { useUserActivityPreferences } from "~/composables/use-users/preferences"
 import useDefaultActivity from "~/composables/use-default-activity";
 import { ActivityKey } from "~/lib/api/types/activity";
 import type { UserBase } from "~/lib/api/types/user";
+import { useGroupSelf } from "~/composables/use-groups";
+import { resolveTablePageSize } from "~/composables/use-table-page-size";
 import type { VForm } from "~/types/auto-forms";
 
 definePageMeta({
@@ -258,6 +280,35 @@ const userCopy = ref({ ...user.value });
 watch(user, () => {
   userCopy.value = { ...user.value };
 });
+
+const { group } = useGroupSelf();
+const groupTablePageSize = computed(() => resolveTablePageSize(null, group.value?.preferences?.defaultTablePageSize));
+const tablePageSize = ref<string | number | null>(user.value?.tablePageSize ?? null);
+watch(() => user.value?.tablePageSize, (value) => {
+  tablePageSize.value = value ?? null;
+});
+
+function parseTablePageSize(value: string | number | null): number | null | undefined {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+  const size = Number(value);
+  return Number.isInteger(size) && size >= 5 && size <= 500 ? size : undefined;
+}
+
+function validTablePageSize(value: string | number | null) {
+  return parseTablePageSize(value) !== undefined || i18n.t("group.table-page-size-range", { min: 5, max: 500 });
+}
+
+async function updateTablePageSize() {
+  await nextTick();
+  const size = parseTablePageSize(tablePageSize.value);
+  if (size === undefined || size === (user.value?.tablePageSize ?? null)) {
+    return;
+  }
+  userCopy.value.tablePageSize = size;
+  await updateUser();
+}
 
 const api = useUserApi();
 const showPassword = ref(false);
@@ -293,6 +344,7 @@ async function updateUser() {
     canManage: userData.canManage,
     canManageHousehold: userData.canManageHousehold,
     canOrganize: userData.canOrganize,
+    tablePageSize: userData.tablePageSize ?? null,
   };
 
   const { response } = await api.users.updateOne(userData.id, updatePayload);

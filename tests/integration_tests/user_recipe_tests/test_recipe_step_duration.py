@@ -79,3 +79,41 @@ def test_api_rejects_invalid_duration_without_saving(api_client, unique_user, ra
     assert api_client.put(route, json=payload, headers=unique_user.token).status_code == 422
     after = api_client.get(route, headers=unique_user.token).json()
     assert after["recipeInstructions"] == before["recipeInstructions"]
+
+
+def test_step_cooling_cooking_and_rest_times_persist_alongside_duration(api_client, unique_user):
+    response = api_client.post(api_routes.recipes, json={"name": f"Times {uuid4()}"}, headers=unique_user.token)
+    route = api_routes.recipes_slug(response.json())
+    recipe = api_client.get(route, headers=unique_user.token).json()
+    recipe["recipeInstructions"] = [
+        {"text": "Bake", "durationSeconds": 600, "cookingSeconds": 2100, "restSeconds": 600, "coolingSeconds": 3600},
+        {"text": "Serve", "cookingSeconds": 0},
+    ]
+    assert api_client.put(route, json=recipe, headers=unique_user.token).status_code == 200
+    steps = api_client.get(route, headers=unique_user.token).json()["recipeInstructions"]
+    times = [(s["durationSeconds"], s["cookingSeconds"], s["restSeconds"], s["coolingSeconds"]) for s in steps]
+    assert times == [(600, 2100, 600, 3600), (None, None, None, None)]
+
+    recipe = {**recipe, "recipeInstructions": [{"text": "Invalid", "restSeconds": -1}]}
+    assert api_client.put(route, json=recipe, headers=unique_user.token).status_code == 422
+
+
+def test_recipe_cooling_and_rest_times_persist(api_client, unique_user):
+    response = api_client.post(api_routes.recipes, json={"name": f"Times {uuid4()}"}, headers=unique_user.token)
+    route = api_routes.recipes_slug(response.json())
+    recipe = api_client.get(route, headers=unique_user.token).json()
+    assert (recipe["coolingTimeSeconds"], recipe["restTimeSeconds"]) == (None, None)
+
+    recipe.update(coolingTime="plus overnight", coolingTimeSeconds=7200, restTime="in the fridge", restTimeSeconds=1800)
+    assert api_client.put(route, json=recipe, headers=unique_user.token).status_code == 200
+    saved = api_client.get(route, headers=unique_user.token).json()
+    assert (saved["coolingTime"], saved["coolingTimeSeconds"]) == ("plus overnight", 7200)
+    assert (saved["restTime"], saved["restTimeSeconds"]) == ("in the fridge", 1800)
+
+    # a partial update changes one time and leaves the others alone
+    response = api_client.patch(route, json={"restTimeSeconds": None}, headers=unique_user.token)
+    assert response.status_code == 200
+    saved = api_client.get(route, headers=unique_user.token).json()
+    assert (saved["coolingTimeSeconds"], saved["restTimeSeconds"]) == (7200, None)
+
+    assert api_client.put(route, json={**saved, "coolingTimeSeconds": -1}, headers=unique_user.token).status_code == 422

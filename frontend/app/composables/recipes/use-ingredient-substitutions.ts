@@ -11,10 +11,18 @@ function foodSubstitutionsOf(ingredient: RecipeIngredient): IngredientFoodSubsti
 
 /**
  * The name a substitute food shows under, inflected to match the line it stands in for: a
- * substitution for "2 onions" reads "shallots", not "shallot".
+ * substitution for "2 onions" reads "shallots", not "shallot". A combination of foods reads
+ * "butter + flour".
  */
 export function substitutionFoodName(substitution: IngredientFoodSubstitution, usePluralFood = false): string {
-  return useFoodName(substitution.substituteFood || undefined, usePluralFood);
+  const main = useFoodName(substitution.substituteFood || undefined, usePluralFood);
+  if (!main) {
+    return "";
+  }
+  const others = (substitution.additionalFoods || [])
+    .map(food => useFoodName(food, usePluralFood))
+    .filter(Boolean);
+  return [main, ...others].join(" + ");
 }
 
 /**

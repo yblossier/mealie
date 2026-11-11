@@ -197,6 +197,42 @@ def test_food_merger_collapses_duplicate_substitutions(unique_user: TestUser):
     assert substitution_pairs(unique_user, target.id) == {(substitute.id, "keep me")}
 
 
+def test_food_merger_keeps_combinations_sharing_their_first_food(unique_user: TestUser):
+    """`from -> S + T` is a different substitution from `to -> S`, while a second `to -> S + T` collapses."""
+
+    substitute = create_food_with_substitutions(unique_user)
+    extra = create_food_with_substitutions(unique_user)
+    target = create_food_with_substitutions(
+        unique_user, substitutions=[IngredientFoodSubstitutionCreate(substitute_food_id=substitute.id, note="alone")]
+    )
+    source = create_food_with_substitutions(
+        unique_user,
+        substitutions=[
+            IngredientFoodSubstitutionCreate(
+                substitute_food_id=substitute.id, additional_food_ids=[extra.id], note="combined"
+            )
+        ],
+    )
+    duplicate = create_food_with_substitutions(
+        unique_user,
+        substitutions=[
+            IngredientFoodSubstitutionCreate(
+                substitute_food_id=substitute.id, additional_food_ids=[extra.id], note="drop me"
+            )
+        ],
+    )
+
+    unique_user.repos.ingredient_foods.merge(source.id, target.id)
+    unique_user.repos.ingredient_foods.merge(duplicate.id, target.id)
+
+    food = unique_user.repos.ingredient_foods.get_one(target.id)
+    assert food
+    assert {(sub.substitute_food_id, tuple(sub.additional_food_ids), sub.note) for sub in food.substitutions} == {
+        (substitute.id, (), "alone"),
+        (substitute.id, (extra.id,), "combined"),
+    }
+
+
 def test_food_merger_keeps_note_only_substitutions(unique_user: TestUser):
     """Note-only substitutions carry no food reference, so nothing about a merge can invalidate them."""
 

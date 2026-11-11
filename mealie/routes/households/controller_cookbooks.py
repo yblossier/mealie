@@ -23,6 +23,7 @@ from mealie.services.event_bus_service.event_types import (
     EventOperation,
     EventTypes,
 )
+from mealie.services.recipe.recipe_allergen_service import RecipeAllergenService
 from mealie.services.recipe.recipe_pdf_service import RecipePdfRenderer, render_cookbook_pdf
 
 router = APIRouter(prefix="/households/cookbooks", tags=["Households: Cookbooks"], route_class=MealieCrudRoute)
@@ -113,7 +114,9 @@ class GroupCookbookController(BaseCrudController):
     def get_one_as_pdf(self, item_id: UUID4 | str, include_images: bool = True):
         cookbook = self._get_group_cookbook(item_id)
         recipes = get_repositories(self.session, group_id=self.group_id, household_id=None).recipes
-        renderer = RecipePdfRenderer(self.translator, include_images=include_images)
+        renderer = RecipePdfRenderer(
+            self.translator, include_images=include_images, allergens=RecipeAllergenService(self.repos).name_finder()
+        )
         return pdf_file_response(render_cookbook_pdf(renderer, recipes, cookbook), cookbook.slug or str(cookbook.id))
 
     def _get_group_cookbook(self, item_id: UUID4 | str) -> CookBookOut:

@@ -75,6 +75,10 @@
                 :prep-time-seconds="recipe.prepTimeSeconds"
                 :total-time-seconds="recipe.totalTimeSeconds"
                 :perform-time-seconds="recipe.performTimeSeconds"
+                :cooling-time-seconds="recipe.coolingTimeSeconds"
+                :cooling-time="recipe.coolingTime"
+                :rest-time-seconds="recipe.restTimeSeconds"
+                :rest-time="recipe.restTime"
                 class="mb-4"
               />
             </div>
@@ -120,7 +124,7 @@ const users = isOwnGroup.value ? useUserStore().store : ref<UserSummary[]>([]);
 const owner = computed(() => users.value.find(u => u.id === props.recipe.userId));
 
 const hasTime = computed(() => {
-  const { prepTime, totalTime, performTime, prepTimeSeconds, totalTimeSeconds, performTimeSeconds } = props.recipe;
-  return [prepTime, totalTime, performTime, prepTimeSeconds, totalTimeSeconds, performTimeSeconds].some(x => !!x);
+  const { prepTime, totalTime, performTime, prepTimeSeconds, totalTimeSeconds, performTimeSeconds, coolingTimeSeconds, restTimeSeconds, coolingTime, restTime } = props.recipe;
+  return [prepTime, totalTime, performTime, prepTimeSeconds, totalTimeSeconds, performTimeSeconds, coolingTimeSeconds, restTimeSeconds, coolingTime, restTime].some(x => !!x);
 });
 </script>

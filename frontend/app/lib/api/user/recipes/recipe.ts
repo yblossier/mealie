@@ -1,4 +1,5 @@
 import { SSE } from "sse.js";
+import type { RecipeAllergen } from "~/lib/api/types/allergens";
 import type { ReadyStateEvent, SSEvent } from "sse.js";
 import { BaseCRUDAPI } from "../../base/base-clients";
 import { route } from "../../base";
@@ -19,8 +20,10 @@ import type {
   RecipeTimelineEventIn,
   RecipeTimelineEventOut,
   RecipeTimelineEventUpdate,
+  RecipeThermomixView,
+  ThermomixLogEntry,
 } from "~/lib/api/types/recipe";
-import type { SSEDataEventDone, SSEDataEventMessage } from "~/lib/api/types/response";
+import type { SuccessResponse, SSEDataEventDone, SSEDataEventMessage } from "~/lib/api/types/response";
 import type { ApiRequestInstance, PaginationData, RequestResponse } from "~/lib/api/types/non-generated";
 import { SSEDataEventStatus } from "~/lib/api/types/non-generated";
 
@@ -54,11 +57,13 @@ const routes = {
   recipesRecipeSlugAssets: (recipe_slug: string) => `${prefix}/recipes/${recipe_slug}/assets`,
   recipesRecipeSlugAssetsUrl: (recipe_slug: string) => `${prefix}/recipes/${recipe_slug}/assets/url`,
   recipesRecipeSlugExportsPdf: (recipe_slug: string) => `${prefix}/recipes/${recipe_slug}/exports/pdf`,
+  recipesRecipeSlugThermomix: (recipe_slug: string) => `${prefix}/recipes/${recipe_slug}/thermomix`,
 
   recipesSlugComments: (slug: string) => `${prefix}/recipes/${slug}/comments`,
   recipesSlugCommentsId: (slug: string, id: number) => `${prefix}/recipes/${slug}/comments/${id}`,
 
   recipesSlugLastMade: (slug: string) => `${prefix}/recipes/${slug}/last-made`,
+  recipesSlugAllergens: (slug: string) => `${prefix}/recipes/${slug}/allergens`,
   recipesTimelineEventId: (id: string) => `${prefix}/recipes/timeline/events/${id}`,
   recipesTimelineEventIdImage: (id: string) => `${prefix}/recipes/timeline/events/${id}/image`,
 };
@@ -108,8 +113,14 @@ export class RecipeAPI extends BaseCRUDAPI<RecipeCreate, RecipeOut, RecipeDraft,
     this.share = new RecipeShareApi(requests);
   }
 
-  getPdfUrl(recipeSlug: string) {
-    return routes.recipesRecipeSlugExportsPdf(recipeSlug);
+  /** The PDF of a recipe; images and the tools page can be left out, as when printing */
+  getPdfUrl(recipeSlug: string, options: { includeImages?: boolean; includeTools?: boolean } = {}) {
+    const params = new URLSearchParams();
+    if (options.includeImages === false) params.set("include_images", "false");
+    if (options.includeTools === false) params.set("include_tools", "false");
+    const query = params.toString();
+    const url = routes.recipesRecipeSlugExportsPdf(recipeSlug);
+    return query ? `${url}?${query}` : url;
   }
 
   async search(rsq: RecipeSearchQuery) {
@@ -148,6 +159,26 @@ export class RecipeAPI extends BaseCRUDAPI<RecipeCreate, RecipeOut, RecipeDraft,
 
   updateImagebyURL(slug: string, url: string) {
     return this.requests.post<UpdateImageResponse>(routes.recipesRecipeSlugImage(slug), { url });
+  }
+
+  getAllergens(slug: string) {
+    return this.requests.get<RecipeAllergen[]>(routes.recipesSlugAllergens(slug));
+  }
+
+  getThermomixView(slug: string) {
+    return this.requests.get<RecipeThermomixView | null>(routes.recipesRecipeSlugThermomix(slug));
+  }
+
+  generateThermomixView(slug: string) {
+    return this.requests.post<RecipeThermomixView>(routes.recipesRecipeSlugThermomix(slug), {});
+  }
+
+  getThermomixLogs(slug: string) {
+    return this.requests.get<ThermomixLogEntry[]>(`${routes.recipesRecipeSlugThermomix(slug)}/logs`);
+  }
+
+  deleteThermomixView(slug: string) {
+    return this.requests.delete<SuccessResponse>(routes.recipesRecipeSlugThermomix(slug));
   }
 
   deleteImage(slug: string) {

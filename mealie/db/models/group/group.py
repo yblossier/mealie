@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from ..household.events import GroupEventNotifierModel
     from ..household.recipe_action import GroupRecipeAction
     from ..household.shopping_list import ShoppingList
-    from ..recipe import IngredientFoodModel, IngredientUnitModel, RecipeModel, Tag, Tool
+    from ..recipe import Allergen, IngredientFoodModel, IngredientUnitModel, RecipeModel, Tag, Tool
     from ..users import User
     from .exports import GroupDataExportsModel
     from .report import ReportModel
@@ -93,6 +93,7 @@ class Group(SqlAlchemyBase, BaseMixins):
     ingredient_foods: Mapped[list[IngredientFoodModel]] = orm.relationship("IngredientFoodModel", **common_args)
     tools: Mapped[list[Tool]] = orm.relationship("Tool", **common_args)
     tags: Mapped[list[Tag]] = orm.relationship("Tag", **common_args)
+    allergens: Mapped[list[Allergen]] = orm.relationship("Allergen", **common_args)
     model_config = AutoInitOptions(
         exclude={
             "households",

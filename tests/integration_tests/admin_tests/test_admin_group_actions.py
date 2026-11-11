@@ -79,7 +79,37 @@ def test_admin_update_group(api_client: TestClient, admin_user: TestUser, unique
     as_json = response.json()
 
     assert as_json["name"] == update_payload["name"]
-    assert_ignore_keys(as_json["preferences"], update_payload["preferences"])  # type: ignore
+    sent_preferences: dict = update_payload["preferences"]  # type: ignore
+    assert_ignore_keys({key: as_json["preferences"][key] for key in sent_preferences}, sent_preferences)
+
+
+def test_admin_update_group_usda_api_key(api_client: TestClient, admin_user: TestUser, unique_user: TestUser):
+    """The write-only USDA key is set, kept when omitted, and cleared by an empty string."""
+
+    def update(preferences: dict) -> dict:
+        response = api_client.put(
+            api_routes.admin_groups_item_id(unique_user.group_id),
+            json={"id": unique_user.group_id, "name": random_string(), "preferences": preferences},
+            headers=admin_user.token,
+        )
+        assert response.status_code == 200
+        return response.json()["preferences"]
+
+    def saved_key() -> str | None:
+        preferences = unique_user.repos.group_preferences.get_one(unique_user.group_id)
+        assert preferences
+        return preferences.usda_api_key
+
+    preferences = update({"usdaApiKey": "my-key"})
+    assert preferences["usdaApiKeySet"] is True
+    assert "usdaApiKey" not in preferences
+    assert saved_key() == "my-key"
+
+    assert update({"privateGroup": True})["usdaApiKeySet"] is True
+    assert saved_key() == "my-key"
+
+    assert update({"usdaApiKey": ""})["usdaApiKeySet"] is False
+    assert saved_key() is None
 
 
 def test_admin_update_group_name_only(api_client: TestClient, admin_user: TestUser, unique_user: TestUser):

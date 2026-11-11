@@ -3,6 +3,7 @@ from collections.abc import Generator
 from functools import cached_property
 
 from mealie.lang.locale_config import resolve_food_plural, resolve_plural
+from mealie.schema.allergens.allergen import AllergenSave, AllergenUpdate
 from mealie.schema.labels import MultiPurposeLabelOut, MultiPurposeLabelSave
 from mealie.schema.recipe.recipe_ingredient import (
     IngredientFoodOut,
@@ -13,7 +14,7 @@ from mealie.schema.recipe.recipe_ingredient import (
 from mealie.services.group_services.labels_service import MultiPurposeLabelService
 
 from ._abstract_seeder import AbstractSeeder
-from .resources import foods, units
+from .resources import allergens, foods, units
 
 
 class IngredientUnitsSeeder(AbstractSeeder):
@@ -148,3 +149,65 @@ class IngredientFoodsSeeder(AbstractSeeder):
                     self.repos.ingredient_foods.create(food)
                 except Exception as e:
                     self.logger.error(e)
+
+
+def _merge_terms(existing: str, new: list[str]) -> str:
+    terms = [term.strip() for term in existing.split(",") if term.strip()]
+    known = {term.lower() for term in terms}
+    terms += [term for term in new if term.lower() not in known]
+    return ", ".join(terms)
+
+
+class AllergensSeeder(AbstractSeeder):
+    """
+    Seeds the 14 major allergens of Regulation (EU) No 1169/2011, Annex II. Allergens already in the
+    group (recognized by their code, or by their name) keep their edits and only gain the missing keywords.
+    """
+
+    @classmethod
+    def get_file(cls, locale: str | None = None) -> pathlib.Path:
+        return allergens.allergens
+
+    @staticmethod
+    def pick_locale(locales: dict[str, dict], locale: str | None) -> dict | None:
+        lang = (locale or "en").split("-")[0].lower()
+        return locales.get(lang) or locales.get("en")
+
+    def seed(self, locale: str | None = None) -> None:
+        self.logger.info("Seeding Allergens")
+        repo = self.repos.group_allergens
+        existing = repo.get_all()
+        by_code = {allergen.code: allergen for allergen in existing if allergen.code}
+        by_name = {allergen.name.lower(): allergen for allergen in existing}
+
+        for code, data in self.load_file(self.get_file(locale))["allergens"].items():
+            values = self.pick_locale(data["locales"], locale)
+            if not values:
+                continue
+
+            current = by_code.get(code) or by_name.get(values["name"].lower())
+            try:
+                if current:
+                    repo.update(
+                        current.id,
+                        AllergenUpdate(
+                            id=current.id,
+                            group_id=self.repos.group_id,
+                            name=current.name,
+                            code=current.code or code,
+                            keywords=_merge_terms(current.keywords, values["keywords"]),
+                            exclusions=_merge_terms(current.exclusions, values["exclusions"]),
+                        ),
+                    )
+                else:
+                    repo.create(
+                        AllergenSave(
+                            group_id=self.repos.group_id,
+                            code=code,
+                            name=values["name"],
+                            keywords=", ".join(values["keywords"]),
+                            exclusions=", ".join(values["exclusions"]),
+                        )
+                    )
+            except Exception as e:
+                self.logger.error(e)

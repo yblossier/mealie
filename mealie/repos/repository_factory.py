@@ -26,9 +26,14 @@ from mealie.db.models.household.shopping_list import (
     ShoppingListRecipeReference,
 )
 from mealie.db.models.household.webhooks import GroupWebhooksModel
+from mealie.db.models.recipe.allergen import Allergen
 from mealie.db.models.recipe.category import Category, recipes_to_categories
 from mealie.db.models.recipe.comment import RecipeComment
-from mealie.db.models.recipe.ingredient import IngredientFoodModel, IngredientUnitModel
+from mealie.db.models.recipe.ingredient import (
+    IngredientFoodModel,
+    IngredientFoodNutritionLogModel,
+    IngredientUnitModel,
+)
 from mealie.db.models.recipe.labels import MultiPurposeLabel
 from mealie.db.models.recipe.recipe import RecipeModel
 from mealie.db.models.recipe.recipe_timeline import RecipeTimelineEvent
@@ -40,10 +45,13 @@ from mealie.db.models.users.password_reset import PasswordResetModel
 from mealie.db.models.users.user_to_recipe import UserToRecipe
 from mealie.repos.repository_ai_provider import GroupRepositoryAIPromptOverride, GroupRepositoryAIProvider
 from mealie.repos.repository_cookbooks import RepositoryCookbooks
+from mealie.repos.repository_food_composition import RepositoryFoodComposition
+from mealie.repos.repository_food_nutrition_logs import RepositoryFoodNutritionLogs
 from mealie.repos.repository_foods import RepositoryFood
 from mealie.repos.repository_household import RepositoryHousehold, RepositoryHouseholdRecipes
 from mealie.repos.repository_meal_plan_rules import RepositoryMealPlanRules
 from mealie.repos.repository_units import RepositoryUnit
+from mealie.schema.allergens.allergen import AllergenOut
 from mealie.schema.cookbook.cookbook import CookBookOut
 from mealie.schema.group.ai_providers import AIPromptOverrideOut, AIProviderOut, AIProviderSettingsOut
 from mealie.schema.group.group_exports import GroupDataExport
@@ -65,7 +73,11 @@ from mealie.schema.labels import MultiPurposeLabelOut
 from mealie.schema.meal_plan.new_meal import PlanEntryOut
 from mealie.schema.meal_plan.plan_rules import PlanRulesOut
 from mealie.schema.recipe import RecipeCommentOut, RecipeOut
-from mealie.schema.recipe.recipe_ingredient import IngredientFoodOut, IngredientUnitOut
+from mealie.schema.recipe.recipe_ingredient import (
+    IngredientFoodNutritionLogOut,
+    IngredientFoodOut,
+    IngredientUnitOut,
+)
 from mealie.schema.recipe.recipe_organizers import CategoryOut, TagOut, ToolOut
 from mealie.schema.recipe.recipe_share_token import RecipeShareTokenOut
 from mealie.schema.recipe.recipe_timeline_events import RecipeTimelineEventOut
@@ -183,6 +195,25 @@ class RepositoryTools(GroupRepositoryGeneric[ToolOut, Tool]):
         stmt = select(Tool).filter(~Tool.recipes.any()).filter_by(**self._filter_builder())
         return self.session.execute(stmt).scalars().all()
 
+    def has_accessories(self, tool_id: UUID4) -> bool:
+        stmt = select(Tool.id).filter(Tool.parent_id == tool_id).filter_by(**self._filter_builder()).limit(1)
+        return self.session.execute(stmt).first() is not None
+
+    def detach_accessories(self, tool_id: UUID4) -> None:
+        try:
+            self.session.execute(update(Tool).where(Tool.parent_id == tool_id).values(parent_id=None))
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            raise e
+
+    def delete(self, value, match_key: str | None = None) -> ToolOut:
+        # SQLite doesn't enforce the ON DELETE SET NULL of the parent link, so accessories are released here
+        tool = self.get_one(value, match_key)
+        if tool is not None:
+            self.detach_accessories(tool.id)
+        return super().delete(value, match_key)
+
     def merge(self, from_tool: UUID4, to_tool: UUID4) -> ToolOut | None:
         already_in_to = select(recipes_to_tools.c.recipe_id).where(recipes_to_tools.c.tool_id == to_tool)
 
@@ -194,6 +225,15 @@ class RepositoryTools(GroupRepositoryGeneric[ToolOut, Tool]):
                 .values(tool_id=to_tool)
             )
             self.session.execute(delete(recipes_to_tools).where(recipes_to_tools.c.tool_id == from_tool))
+
+            # the accessories follow the merged tool when it can be their parent
+            to_model = self._query_one(to_tool)
+            if to_model.parent_id == from_tool:
+                to_model.parent_id = None
+            can_be_parent = to_model.category == "appliance" and to_model.parent_id is None
+            self.session.execute(
+                update(Tool).where(Tool.parent_id == from_tool).values(parent_id=to_tool if can_be_parent else None)
+            )
 
             from_model = self._query_one(from_tool)
             self.session.delete(from_model)
@@ -293,6 +333,21 @@ class AllRepositories:
     @cached_property
     def ingredient_foods(self) -> RepositoryFood:
         return RepositoryFood(self.session, PK_ID, IngredientFoodModel, IngredientFoodOut, group_id=self.group_id)
+
+    @cached_property
+    def ingredient_food_nutrition_logs(self) -> RepositoryFoodNutritionLogs:
+        return RepositoryFoodNutritionLogs(
+            self.session,
+            PK_ID,
+            IngredientFoodNutritionLogModel,
+            IngredientFoodNutritionLogOut,
+            group_id=self.group_id,
+        )
+
+    @cached_property
+    def food_composition(self) -> RepositoryFoodComposition:
+        """The nutrition referential, shared by all the groups"""
+        return RepositoryFoodComposition(self.session)
 
     @cached_property
     def ingredient_units(self) -> RepositoryUnit:
@@ -529,6 +584,10 @@ class AllRepositories:
             group_id=self.group_id,
             household_id=self.household_id,
         )
+
+    @cached_property
+    def group_allergens(self) -> GroupRepositoryGeneric[AllergenOut, Allergen]:
+        return GroupRepositoryGeneric(self.session, PK_ID, Allergen, AllergenOut, group_id=self.group_id)
 
     @cached_property
     def group_multi_purpose_labels(self) -> RepositoryMultiPurposeLabels:

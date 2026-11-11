@@ -13,6 +13,17 @@
         @submit="createTimelineEvent"
       >
         <v-card-text>
+          <v-alert
+            v-if="completionIntro"
+            type="success"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            :icon="$globals.icons.chefHat"
+            data-testid="made-this-completion-intro"
+          >
+            {{ $t("recipe.all-steps-done") }}
+          </v-alert>
           <v-form ref="domMadeThisForm">
             <v-textarea
               v-model="newTimelineEvent.eventMessage"
@@ -73,19 +84,37 @@
                     />
                   </v-menu>
                 </v-col>
-                <v-spacer />
-                <v-col cols="auto">
+              </v-row>
+              <v-row>
+                <v-col cols="12">
                   <AppButtonUpload
                     v-if="!newTimelineEventImage"
-                    class="ml-auto"
                     url="none"
                     file-name="image"
                     accept="image/*"
-                    :text="$t('recipe.upload-image')"
-                    :text-btn="false"
                     :post="false"
                     @uploaded="uploadImage"
-                  />
+                  >
+                    <template #default="{ isSelecting, onButtonClick }">
+                      <v-btn
+                        block
+                        height="96"
+                        color="primary"
+                        variant="tonal"
+                        class="text-none"
+                        data-testid="made-this-upload-image"
+                        :loading="isSelecting"
+                        @click="onButtonClick"
+                      >
+                        <div class="d-flex flex-column align-center ga-2">
+                          <v-icon size="32">
+                            {{ $globals.icons.upload }}
+                          </v-icon>
+                          <span>{{ $t("recipe.upload-image") }}</span>
+                        </div>
+                      </v-btn>
+                    </template>
+                  </AppButtonUpload>
                   <v-btn v-if="!!newTimelineEventImage" color="error" @click="clearImage">
                     <v-icon start>
                       {{ $globals.icons.close }}
@@ -149,6 +178,7 @@ import { formatISO } from "date-fns";
 import { useUserApi } from "~/composables/api";
 import { alert } from "~/composables/use-toast";
 import { useHouseholdSelf } from "~/composables/use-households";
+import { useMadeThisPrompt } from "~/composables/recipes/use-made-this-prompt";
 import type { RecipeOut, RecipeTimelineEventIn, RecipeTimelineEventOut } from "~/lib/api/types/recipe";
 import type { VForm } from "~/types/auto-forms";
 
@@ -158,6 +188,22 @@ const emit = defineEmits<{
 }>();
 
 const madeThisDialog = ref(false);
+const completionIntro = ref(false);
+
+// Steps ask for the dialog once they are all checked off
+const madeThisPrompt = useMadeThisPrompt(props.recipe.slug);
+const unregisterDialog = madeThisPrompt.registerDialog();
+onUnmounted(unregisterDialog);
+watch(madeThisPrompt.requests, () => {
+  completionIntro.value = madeThisPrompt.fromCompletion.value;
+  madeThisDialog.value = true;
+});
+watch(madeThisDialog, (open) => {
+  if (!open) {
+    completionIntro.value = false;
+  }
+});
+
 const userApi = useUserApi();
 const { household } = useHouseholdSelf();
 const i18n = useI18n();

@@ -29,6 +29,17 @@ describe("substitutionFoodName", () => {
     expect(substitutionFoodName({ substituteFoodId: broth.id, substituteFood: broth }, true)).toStrictEqual("Chicken broth");
   });
 
+  test("joins the foods of a combination", () => {
+    const substitution = {
+      substituteFoodId: pork.id,
+      substituteFood: pork,
+      additionalFoodIds: [shallot.id, broth.id],
+      additionalFoods: [shallot, broth],
+    };
+
+    expect(substitutionFoodName(substitution, true)).toStrictEqual("Pork + Shallots + Chicken broth");
+  });
+
   test("is empty for a substitution that is only a note", () => {
     expect(substitutionFoodName({ note: "pork works" }, true)).toStrictEqual("");
   });

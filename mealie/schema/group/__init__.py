@@ -16,20 +16,19 @@ from .ai_providers import (
 )
 from .group import GroupAdminUpdate
 from .group_exports import GroupDataExport
+from .group_food_composition import FoodCompositionCiqualUpdate, FoodCompositionSourceCount, FoodCompositionStatus
 from .group_migration import DataMigrationCreate, SupportedMigrations
-from .group_preferences import GroupPreferencesCreate, GroupPreferencesOut, GroupPreferencesUpdate
+from .group_preferences import (
+    GroupPreferencesCreate,
+    GroupPreferencesOut,
+    GroupPreferencesUpdate,
+    OpenFoodFactsMode,
+    ToolSupplier,
+)
 from .group_seeder import SeederConfig
 from .group_statistics import GroupStorage
 
 __all__ = [
-    "GroupPreferencesCreate",
-    "GroupPreferencesOut",
-    "GroupPreferencesUpdate",
-    "GroupDataExport",
-    "DataMigrationCreate",
-    "SupportedMigrations",
-    "SeederConfig",
-    "GroupAdminUpdate",
     "AIPromptMode",
     "AIPromptOut",
     "AIPromptOverrideCreate",
@@ -43,5 +42,18 @@ __all__ = [
     "AIProviderSummary",
     "AIProviderTestResult",
     "AIProviderUpdate",
+    "GroupAdminUpdate",
+    "GroupDataExport",
+    "FoodCompositionCiqualUpdate",
+    "FoodCompositionSourceCount",
+    "FoodCompositionStatus",
+    "DataMigrationCreate",
+    "SupportedMigrations",
+    "GroupPreferencesCreate",
+    "GroupPreferencesOut",
+    "GroupPreferencesUpdate",
+    "OpenFoodFactsMode",
+    "ToolSupplier",
+    "SeederConfig",
     "GroupStorage",
 ]

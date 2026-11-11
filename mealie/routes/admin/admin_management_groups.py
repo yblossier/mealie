@@ -60,8 +60,15 @@ class AdminGroupManagementRoutes(BaseAdminController):
 
         if data.preferences:
             preferences = self.repos.group_preferences.get_one(value=item_id, key="group_id")
+            saved_usda_api_key = preferences.usda_api_key if preferences else None
             preferences = mapper(data.preferences, preferences)
-            group.preferences = self.repos.group_preferences.update(item_id, preferences)
+            update_data = preferences.model_dump(exclude={"usda_api_key_set"})
+            # the USDA API key is never sent to the clients, so its absence means it's unchanged
+            if data.preferences.usda_api_key is None:
+                update_data["usda_api_key"] = saved_usda_api_key
+            else:
+                update_data["usda_api_key"] = data.preferences.usda_api_key or None
+            group.preferences = self.repos.group_preferences.update(item_id, update_data)
 
         if data.ai_provider_settings:
             provider_settings = self.repos.group_ai_provider_settings.get_one(item_id)

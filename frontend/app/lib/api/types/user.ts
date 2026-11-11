@@ -6,6 +6,7 @@
 */
 
 export type WebhookType = "mealplan";
+export type OpenFoodFactsMode = "prod" | "dev";
 export type AuthMethod = "Mealie" | "LDAP" | "OIDC" | "ReverseProxy";
 
 export interface ChangePassword {
@@ -74,8 +75,22 @@ export interface UserSummary {
 export interface GroupPreferencesOut {
   privateGroup: boolean;
   showAnnouncements: boolean;
+  defaultTablePageSize: number;
+  toolSuppliers: ToolSupplier[];
+  showToolSupplierLinks: boolean;
+  offMode: OpenFoodFactsMode;
+  offAppName: string | null;
+  offAppVersion: string | null;
+  offAppUuid: string | null;
+  usdaApiEnabled: boolean;
   groupId: string;
   id: string;
+  usdaApiKeySet: boolean;
+}
+export interface ToolSupplier {
+  name: string;
+  url: string;
+  enabled?: boolean;
 }
 export interface AIProviderSettingsOut {
   defaultProviderId: string | null;
@@ -141,6 +156,7 @@ export interface PrivateUser {
   advanced: boolean;
   showAnnouncements: boolean;
   lastReadAnnouncement: string | null;
+  tablePageSize: number | null;
   canInvite: boolean;
   canManage: boolean;
   canManageHousehold: boolean;
@@ -214,6 +230,7 @@ export interface UserBase {
   advanced?: boolean;
   showAnnouncements?: boolean;
   lastReadAnnouncement?: string | null;
+  tablePageSize?: number | null;
   canInvite?: boolean;
   canManage?: boolean;
   canManageHousehold?: boolean;
@@ -231,6 +248,7 @@ export interface UserIn {
   advanced?: boolean;
   showAnnouncements?: boolean;
   lastReadAnnouncement?: string | null;
+  tablePageSize?: number | null;
   canInvite?: boolean;
   canManage?: boolean;
   canManageHousehold?: boolean;
@@ -249,6 +267,7 @@ export interface UserOut {
   advanced: boolean;
   showAnnouncements: boolean;
   lastReadAnnouncement: string | null;
+  tablePageSize: number | null;
   canInvite: boolean;
   canManage: boolean;
   canManageHousehold: boolean;

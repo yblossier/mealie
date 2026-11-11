@@ -528,6 +528,13 @@ class AppSettings(AppLoggingSettings):
         return self.REVERSE_PROXY_AUTH_FEATURE.enabled
 
     # ===============================================
+    # Nutrition Configuration
+
+    NUTRITION_OPEN_FOOD_FACTS: bool = True
+    """Search Open Food Facts (online, rate limited) for the foods missing from the bundled Ciqual and USDA tables,
+    before falling back on the AI estimate. Disable it to keep the nutrition estimate offline."""
+
+    # ===============================================
     # Scraper Configuration
 
     SCRAPER_PROXY_URL: str | None = None

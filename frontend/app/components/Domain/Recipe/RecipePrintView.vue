@@ -4,7 +4,7 @@
       <v-container class="ma-0 pa-0">
         <v-row>
           <v-col
-            v-if="recipe.image && preferences.imagePosition && preferences.imagePosition != ImagePosition.hidden"
+            v-if="preferences.showImage && recipe.image && preferences.imagePosition && preferences.imagePosition != ImagePosition.hidden"
             :order="preferences.imagePosition == ImagePosition.left ? -1 : 1"
             cols="4"
             align-self="center"
@@ -44,6 +44,10 @@
                 :prep-time-seconds="recipe.prepTimeSeconds"
                 :total-time-seconds="recipe.totalTimeSeconds"
                 :perform-time-seconds="recipe.performTimeSeconds"
+                :cooling-time-seconds="recipe.coolingTimeSeconds"
+                :cooling-time="recipe.coolingTime"
+                :rest-time-seconds="recipe.restTimeSeconds"
+                :rest-time="recipe.restTime"
                 small
                 color="white"
                 class="ml-4"
@@ -73,7 +77,7 @@
       >
         <h4
           v-if="ingredientSection.ingredients[0].title"
-          class="ingredient-title mt-2"
+          class="print-banner print-banner--group mt-2"
         >
           {{ ingredientSection.ingredients[0].title }}
         </h4>
@@ -86,7 +90,10 @@
             :key="`ingredient-${ingredientIndex}`"
             class="ingredient-cell"
           >
-            <p class="ingredient-body">
+            <p
+              class="ingredient-body"
+              :class="{ 'ingredient-body--allergen': ingredientAllergenNames(ingredient).length > 0 }"
+            >
               <SafeInlineHtml :html="parseText(ingredient)" />
             </p>
             <!-- paper has nothing to tap, so what the menu holds on screen is spelled out here -->
@@ -98,6 +105,39 @@
           </div>
         </div>
       </div>
+      <RecipeAllergenNote
+        v-if="preferences.showAllergens && isOwnGroup && recipe.settings?.showAllergens !== false"
+        :slug="recipe.slug"
+        print
+      />
+    </section>
+
+    <!-- Tools -->
+    <section
+      v-if="preferences.showTools && toolRows.length"
+      class="print-section"
+      data-testid="print-tools"
+    >
+      <v-card-title class="headline pl-0">
+        {{ $t("tool.required-tools") }}
+      </v-card-title>
+      <ul class="tool-list">
+        <li
+          v-for="row in toolRows"
+          :key="row.tool.id || row.index"
+          class="tool-row"
+          :class="{ 'tool-row--child': row.child }"
+        >
+          <span class="tool-checkbox" />
+          <span>{{ row.tool.name }}</span>
+          <span
+            v-if="toolDetails(row.tool)"
+            class="tool-details"
+          >
+            {{ toolDetails(row.tool) }}
+          </span>
+        </li>
+      </ul>
     </section>
 
     <!-- Instructions -->
@@ -121,11 +161,11 @@
             <h4
               v-if="step.title"
               :key="`instruction-title-${stepIndex}`"
-              class="instruction-title mb-2"
+              class="print-banner print-banner--group mb-2"
             >
               {{ step.title }}
             </h4>
-            <h5>
+            <h5 class="print-banner print-banner--step mb-1">
               {{ step.summary ? step.summary : $t("recipe.step-index", {
                 step: stepIndex
                   + instructionSection.stepOffset
@@ -154,7 +194,10 @@
                   v-for="(ingredient, ingredientIndex) in stepLinkedIngredients.get(`${sectionIndex}-${stepIndex}`) ?? []"
                   :key="`ingredient-${ingredientIndex}`"
                 >
-                  <p class="ingredient-body">
+                  <p
+                    class="ingredient-body"
+                    :class="{ 'ingredient-body--allergen': ingredientAllergenNames(ingredient).length > 0 }"
+                  >
                     <SafeInlineHtml :html="parseText(ingredient)" />
                   </p>
                 </template>
@@ -188,8 +231,11 @@
       </section>
     </div>
 
-    <!-- Nutrition -->
-    <div v-if="preferences.showNutrition">
+    <!-- Nutrition, laid out as on the recipe page -->
+    <div
+      v-if="preferences.showNutrition && hasNutrition"
+      data-testid="print-nutrition"
+    >
       <v-card-title class="headline pl-0">
         {{ $t("recipe.nutrition") }}
         <span class="nutrition-per-serving">({{ $t("recipe.per-serving") }})</span>
@@ -197,19 +243,15 @@
 
       <section>
         <div class="print-section">
-          <table class="nutrition-table">
-            <tbody>
-              <tr
-                v-for="(value, key) in recipe.nutrition"
-                :key="key"
-              >
-                <template v-if="value">
-                  <td>{{ labels[key].label }}</td>
-                  <td>{{ value ? (labels[key].suffix ? `${value} ${labels[key].suffix}` : value) : '-' }}</td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
+          <RecipeNutritionBadges
+            :nutrition="recipe.nutrition"
+            class="nutrition-print-badges mb-4"
+          />
+          <RecipeNutritionFactsLabel
+            :nutrition="recipe.nutrition"
+            :basis="$t('recipe.nutrition-facts-per-serving')"
+            class="nutrition-print-label"
+          />
         </div>
       </section>
     </div>
@@ -218,12 +260,18 @@
 
 <script setup lang="ts">
 import RecipeTimeCard from "~/components/Domain/Recipe/RecipeTimeCard.vue";
+import RecipeAllergenNote from "~/components/Domain/Recipe/RecipeAllergenNote.vue";
+import { ingredientAllergenNames } from "~/lib/recipe/ingredient-allergens";
+import RecipeNutritionBadges from "~/components/Domain/Recipe/RecipeNutritionBadges.vue";
+import RecipeNutritionFactsLabel from "~/components/Domain/Recipe/RecipeNutritionFactsLabel.vue";
+import { useLoggedInState } from "~/composables/use-logged-in-state";
 import { useStaticRoutes } from "~/composables/api";
-import type { RecipeOut, RecipeIngredient, RecipeStep } from "~/lib/api/types/recipe";
+import type { RecipeOut, RecipeIngredient, RecipeStep, ToolOut } from "~/lib/api/types/recipe";
 import { ImagePosition, useUserPrintPreferences } from "~/composables/use-users/preferences";
-import { ingredientSubstitutionSummary, useFoodPlurality, useIngredientTextParser, useNutritionLabels } from "~/composables/recipes";
+import { ingredientSubstitutionSummary, parseNutritionValue, useFoodPlurality, useIngredientTextParser } from "~/composables/recipes";
 import { usePageState } from "~/composables/recipe-page/shared-state";
 import { useScaledAmount } from "~/composables/recipes/use-scaled-amount";
+import { dishSizeLabel, toolHierarchy } from "~/lib/recipe/tool-display";
 
 type IngredientSection = {
   sectionName: string;
@@ -248,9 +296,33 @@ const props = withDefaults(defineProps<Props>(), {
 
 const i18n = useI18n();
 const preferences = useUserPrintPreferences();
+const { isOwnGroup } = useLoggedInState();
 const { recipeImage } = useStaticRoutes();
 const { imageKey } = usePageState(props.recipe.slug);
-const { labels } = useNutritionLabels();
+
+const toolRows = computed(() => toolHierarchy(props.recipe.tools ?? []));
+
+/** The shape, size and usages of a dish, as listed on the recipe page. */
+function toolDetails(tool: ToolOut): string {
+  if (tool.category !== "dishes") {
+    return "";
+  }
+  const parts: string[] = [];
+  if (tool.dishShape) parts.push(i18n.t(`tool.shape-${tool.dishShape}`));
+  const size = dishSizeLabel(tool);
+  if (size) parts.push(size);
+  if (tool.usages?.length) parts.push(tool.usages.map(usage => i18n.t(`tool.usage-${usage}`)).join(", "));
+  return parts.join(" · ");
+}
+
+// shown under the same conditions as on the recipe page
+const hasNutrition = computed(() => {
+  const nutrition = props.recipe.nutrition;
+  if (!props.recipe.settings?.showNutrition || !nutrition) {
+    return false;
+  }
+  return Object.values(nutrition).some(value => parseNutritionValue(value) !== null);
+});
 
 const servingsDisplay = computed(() => {
   const { scaledAmountDisplay } = useScaledAmount(props.recipe.recipeYieldQuantity, props.scale);
@@ -468,6 +540,68 @@ p {
   text-underline-offset: 4px;
 }
 
+/* Group banners in medium grey and step banners in a lighter grey; dark text keeps both readable */
+.print-banner {
+  grid-column: 1 / span 2;
+  padding: 2px 8px;
+  border-radius: 2px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.print-banner--group {
+  background-color: #9e9e9e;
+}
+
+.print-banner--step {
+  background-color: #e0e0e0;
+}
+
+.tool-list {
+  padding-left: 0;
+}
+
+.tool-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.tool-row--child {
+  margin-left: 1.5rem;
+}
+
+.tool-checkbox {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 1px solid black;
+}
+
+.tool-details {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* The badges keep their colors and white percentages, as on the recipe page */
+.nutrition-print-badges {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.wrapper .nutrition-print-badges :deep(.nutrition-badge__percent) {
+  color: white !important;
+}
+
+.wrapper .nutrition-print-badges :deep(.text-medium-emphasis) {
+  opacity: 0.7 !important;
+}
+
+.nutrition-print-label {
+  max-width: 480px;
+}
+
 .ingredient-body,
 .recipe-step-body,
 .note-body {
@@ -476,6 +610,11 @@ p {
 
 .ingredient-cell {
   break-inside: avoid;
+}
+
+/* the ingredients whose food is linked to an allergen stand out, as on food labels */
+.ingredient-body--allergen {
+  font-weight: bold;
 }
 
 .substitution-body {

@@ -33,3 +33,7 @@ class DataSeederController(BaseUserController):
     @router.post("/units", response_model=SuccessResponse, dependencies=[require(Perm.GROUP_ORGANIZE)])
     def seed_units(self, data: SeederConfig) -> dict:
         return self._wrap(lambda: self.service.seed_units(data.locale))
+
+    @router.post("/allergens", response_model=SuccessResponse, dependencies=[require(Perm.GROUP_ORGANIZE)])
+    def seed_allergens(self, data: SeederConfig) -> dict:
+        return self._wrap(lambda: self.service.seed_allergens(data.locale))

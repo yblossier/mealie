@@ -51,6 +51,13 @@
           <span>{{ $t("general.edit") }}</span>
         </v-tooltip>
       </div>
+      <RecipeNutritionFillButton
+        v-if="loggedIn && canEdit"
+        fab
+        class="ml-1"
+        :recipe="recipe"
+        @fill="$emit('fill-nutrition', $event)"
+      />
 
       <RecipeContextMenu
         show-print
@@ -104,6 +111,7 @@
 <script setup lang="ts">
 import RecipeContextMenu from "./RecipeContextMenu/RecipeContextMenu.vue";
 import RecipeFavoriteBadge from "./RecipeFavoriteBadge.vue";
+import RecipeNutritionFillButton from "./RecipeNutritionFillButton.vue";
 import RecipeTimelineBadge from "./RecipeTimelineBadge.vue";
 import type { RecipeOut } from "~/lib/api/types/recipe";
 
@@ -128,7 +136,7 @@ withDefaults(defineProps<Props>(), {
   canEdit: false,
 });
 
-const emit = defineEmits(["print", "input", "save", "delete", "close", "json", "edit"]);
+const emit = defineEmits(["print", "input", "save", "delete", "close", "json", "edit", "fill-nutrition"]);
 
 const deleteDialog = ref(false);
 

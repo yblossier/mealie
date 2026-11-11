@@ -30,7 +30,7 @@ from mealie.schema.recipe.recipe_ingredient import (
     IngredientUnitSave,
     RecipeIngredient,
 )
-from mealie.schema.recipe.recipe_organizers import ToolSave
+from mealie.schema.recipe.recipe_organizers import ToolDraft, ToolOut, ToolSave
 from mealie.schema.recipe.recipe_settings import RecipeSettings
 from mealie.schema.recipe.recipe_step import RecipeStep
 from mealie.schema.recipe.recipe_timeline_events import RecipeTimelineEventCreate, TimelineEventType
@@ -207,7 +207,11 @@ class RecipeService(RecipeServiceBase):
         if create_data.name is None:
             create_data.name = "New Recipe"
 
-        data = self._recipe_creation_factory(name=create_data.name, additional_attrs=create_data.model_dump())
+        is_create = isinstance(create_data, RecipeCreate)
+        data = self._recipe_creation_factory(
+            name=create_data.name,
+            additional_attrs=create_data.model_dump(exclude={"thermomix"} if is_create else None),
+        )
 
         if isinstance(create_data, RecipeCreate) or create_data.settings is None:
             if self.household.preferences is not None:
@@ -220,8 +224,11 @@ class RecipeService(RecipeServiceBase):
                 )
             else:
                 data.settings = RecipeSettings()
+            if isinstance(create_data, RecipeCreate):
+                data.settings.thermomix = create_data.thermomix
 
         rating_input = data.rating
+        data.tools = self._apply_tool_accessories(set(), data.tools)
         new_recipe = self.repos.recipes.create(data)
 
         # convert rating into user rating
@@ -575,6 +582,16 @@ class RecipeService(RecipeServiceBase):
         draft.slug = create_recipe_slug(new_name)
         draft.image = cache.cache_key.new_key() if old_recipe.image else None
         draft.recipe_instructions = list(map(replace_recipe_step, old_recipe.recipe_instructions))
+        # Steps get new ids, so the steps they use as a base must follow
+        new_step_ids = {
+            old.id: new.id for old, new in zip(old_recipe.recipe_instructions, draft.recipe_instructions, strict=True)
+        }
+        for step in draft.recipe_instructions:
+            step.step_references = [
+                ref.model_copy(update={"reference_id": new_step_ids[ref.reference_id]})
+                for ref in step.step_references
+                if ref.reference_id in new_step_ids
+            ]
         draft.recipe_ingredient = list(map(copy_recipe_ingredient, old_recipe.recipe_ingredient))
 
         new_recipe = self.repos.recipes.create(
@@ -699,6 +716,33 @@ class RecipeService(RecipeServiceBase):
 
         return update_data
 
+    @staticmethod
+    def _remove_non_existent_tool_references(
+        instructions: list[RecipeStep], tool_ids: set[UUID | None]
+    ) -> list[RecipeStep]:
+        """Removes the references to tools from steps when the tool is no longer on the recipe."""
+
+        for instruction in instructions:
+            instruction.tool_references = [ref for ref in instruction.tool_references if ref.reference_id in tool_ids]
+
+        return instructions
+
+    @staticmethod
+    def _remove_invalid_step_references(instructions: list[RecipeStep]) -> list[RecipeStep]:
+        """Keeps only the references to other steps of the recipe, once each."""
+
+        step_ids = {instruction.id for instruction in instructions if instruction.id}
+        for instruction in instructions:
+            seen: set[UUID] = set()
+            references = []
+            for ref in instruction.step_references:
+                if ref.reference_id in step_ids and ref.reference_id != instruction.id and ref.reference_id not in seen:
+                    seen.add(ref.reference_id)
+                    references.append(ref)
+            instruction.step_references = references
+
+        return instructions
+
     def _resolve_ingredient_sub_recipes(self, update_data: RecipeDraft) -> RecipeDraft:
         """Resolve all referenced_recipe slugs to IDs within the current group."""
         if not update_data.recipe_ingredient:
@@ -721,6 +765,50 @@ class RecipeService(RecipeServiceBase):
 
         return update_data
 
+    def _apply_tool_accessories(self, previous_tool_ids: set[UUID], tools: list[ToolDraft]) -> list[ToolDraft]:
+        """Keeps accessories and the appliance they need together on a recipe.
+
+        An accessory brings its appliance along, and dropping an appliance drops its accessories.
+        Dropping an accessory leaves its appliance in place.
+        """
+        saved: dict[UUID, ToolOut] = {}
+        for tool in tools:
+            found = self.repos.tools.get_one(tool.id) if tool.id else None
+            if found is None and tool.slug:
+                found = self.repos.tools.get_one(tool.slug, "slug")
+            if found is not None:
+                saved[found.id] = found
+
+        removed_ids = previous_tool_ids - saved.keys()
+        kept = [
+            tool
+            for tool in tools
+            if not (
+                (found := self._find_saved_tool(saved, tool))
+                and found.parent_id in removed_ids
+                and found.parent_id not in saved
+            )
+        ]
+
+        kept_ids = {found.id for tool in kept if (found := self._find_saved_tool(saved, tool))}
+        for tool in list(kept):
+            found = self._find_saved_tool(saved, tool)
+            if found is None or found.parent_id is None or found.parent_id in kept_ids:
+                continue
+            parent = self.repos.tools.get_one(found.parent_id)
+            if parent is None:
+                continue
+            kept.append(ToolDraft(id=parent.id, group_id=parent.group_id, name=parent.name, slug=parent.slug))
+            kept_ids.add(parent.id)
+
+        return kept
+
+    @staticmethod
+    def _find_saved_tool(saved: dict[UUID, ToolOut], tool: ToolDraft) -> ToolOut | None:
+        if tool.id and tool.id in saved:
+            return saved[tool.id]
+        return next((found for found in saved.values() if found.slug == tool.slug), None)
+
     def update_one(self, slug_or_id: str | UUID, update_data: RecipeDraft) -> RecipeOut:
         recipe = self._pre_update_check(slug_or_id, update_data)
 
@@ -735,6 +823,11 @@ class RecipeService(RecipeServiceBase):
         update_data = self._remove_non_existent_ingredient_references(update_data)
         update_data = self._remove_non_existent_note_references(update_data)
         update_data = self._resolve_ingredient_sub_recipes(update_data)
+        update_data.tools = self._apply_tool_accessories({tool.id for tool in recipe.tools}, update_data.tools)
+        update_data.recipe_instructions = self._remove_non_existent_tool_references(
+            update_data.recipe_instructions, {tool.id for tool in update_data.tools}
+        )
+        update_data.recipe_instructions = self._remove_invalid_step_references(update_data.recipe_instructions)
 
         new_data = self.group_recipes.update(recipe.slug, update_data)
         self.check_assets(new_data, recipe.slug)
@@ -763,6 +856,16 @@ class RecipeService(RecipeServiceBase):
 
     def patch_one(self, slug_or_id: str | UUID, patch_data: RecipeDraft) -> RecipeOut:
         recipe = self._pre_update_check(slug_or_id, patch_data)
+
+        if "tools" in patch_data.model_fields_set:
+            patch_data.tools = self._apply_tool_accessories({tool.id for tool in recipe.tools}, patch_data.tools)
+
+        if "recipe_instructions" in patch_data.model_fields_set and patch_data.recipe_instructions is not None:
+            tools = patch_data.tools if "tools" in patch_data.model_fields_set else recipe.tools
+            patch_data.recipe_instructions = self._remove_non_existent_tool_references(
+                patch_data.recipe_instructions, {tool.id for tool in tools or []}
+            )
+            patch_data.recipe_instructions = self._remove_invalid_step_references(patch_data.recipe_instructions)
 
         new_data = self.group_recipes.patch(recipe.slug, patch_data.model_dump(exclude_unset=True))
 

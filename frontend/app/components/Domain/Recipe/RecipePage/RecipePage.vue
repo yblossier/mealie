@@ -31,6 +31,7 @@
           @save="saveRecipe"
           @delete="deleteRecipe"
           @close="closeEditor"
+          @fill-nutrition="fillNutrition"
         />
         <RecipeJsonEditor
           v-if="isEditJSON"
@@ -59,6 +60,11 @@
           <div>
             <RecipePageIngredientEditor v-if="isEditForm" v-model="recipe" />
           </div>
+          <RecipeNutritionBadges
+            v-if="!isEditMode && recipe.settings?.showNutrition"
+            :nutrition="recipe.nutrition"
+            class="mb-4"
+          />
           <div>
             <RecipePageScale v-model="scale" :recipe="recipe" />
           </div>
@@ -98,6 +104,7 @@
                   :recipe="displayedRecipe"
                   :scale="scale"
                   :ingredient-storage-key="ingredientStorageKey"
+                  :active="!isCookMode"
                 />
               </v-form>
               <div v-if="isEditForm" class="d-flex">
@@ -179,6 +186,7 @@
             :recipe="displayedRecipe"
             :scale="scale"
             :ingredient-storage-key="ingredientStorageKey"
+            :active="isCookMode && !hasLinkedIngredients"
           />
         </v-col>
       </v-row>
@@ -194,6 +202,7 @@
         :recipe="displayedRecipe"
         :scale="scale"
         :ingredient-storage-key="ingredientStorageKey"
+        :active="isCookMode && hasLinkedIngredients"
       />
 
       <div v-if="notLinkedIngredients.length > 0" class="px-2 px-md-4 pb-4">
@@ -205,6 +214,7 @@
             :scale="scale"
             :is-cook-mode="isCookMode"
             :storage-key="ingredientStorageKey"
+            :recipe-id="recipe.id"
           />
         </v-card>
       </div>
@@ -236,6 +246,7 @@ import RecipePageInstructions from "./RecipePageParts/RecipePageInstructions.vue
 import RecipePageOrganizers from "./RecipePageParts/RecipePageOrganizers.vue";
 import RecipePageParseDialog from "./RecipePageParts/RecipeParseDialog/RecipePageParseDialog.vue";
 import RecipePageScale from "./RecipePageParts/RecipePageScale.vue";
+import RecipeNutritionBadges from "~/components/Domain/Recipe/RecipeNutritionBadges.vue";
 import RecipePageInfoEditor from "./RecipePageParts/RecipePageInfoEditor.vue";
 import RecipePageComments from "./RecipePageParts/RecipePageComments.vue";
 import RecipePrintContainer from "~/components/Domain/Recipe/RecipePrintContainer.vue";
@@ -246,7 +257,7 @@ import {
 } from "~/composables/recipe-page/shared-state";
 import { useCookModeQuery, type BooleanString } from "~/composables/recipe-page/use-cook-mode-query";
 import type { NoUndefinedField } from "~/lib/api/types/non-generated";
-import type { RecipeOut, CategoryOut, RecipeIngredient, RecipeStep, TagOut, ToolOut } from "~/lib/api/types/recipe";
+import type { Nutrition, RecipeOut, CategoryOut, RecipeIngredient, RecipeStep, TagOut, ToolOut } from "~/lib/api/types/recipe";
 import { useRouteQuery } from "~/composables/use-router";
 import { useUserApi } from "~/composables/api";
 import { uuid4, deepCopy } from "~/composables/use-utils";
@@ -256,8 +267,11 @@ import { useLoggedInState } from "~/composables/use-logged-in-state";
 import { useNavigationWarning } from "~/composables/use-navigation-warning";
 import { useUnitConversion, useUnitSystem } from "~/composables/recipes";
 import { useHouseholdSelf } from "~/composables/use-households";
+import { alert } from "~/composables/use-toast";
 
 const recipe = defineModel<RecipeOut>({ required: true });
+
+const i18n = useI18n();
 
 const display = useDisplay();
 const auth = useMealieAuth();
@@ -488,6 +502,22 @@ async function saveRecipe() {
   }
 }
 
+async function fillNutrition(nutrition: Nutrition) {
+  const settings = { ...recipe.value.settings, showNutrition: true };
+  const { data } = await api.recipes.patchOne(recipe.value.slug, { nutrition, settings });
+  if (!data) {
+    return;
+  }
+
+  recipe.value.nutrition = data.nutrition;
+  recipe.value.settings = data.settings;
+  if (originalRecipe.value) {
+    originalRecipe.value.nutrition = deepCopy(data.nutrition);
+    originalRecipe.value.settings = deepCopy(data.settings);
+  }
+  alert.success(i18n.t("recipe.nutrition-filled-from-ingredients"));
+}
+
 async function saveParsedIngredients(ingredients: NoUndefinedField<RecipeIngredient[]>) {
   const returnToEdit = isEditMode.value;
   recipe.value.recipeIngredient = ingredients;
@@ -537,7 +567,7 @@ function addStep(steps: Array<string> | null = null) {
 
   if (steps) {
     const cleanedSteps = steps.map((step) => {
-      return { id: uuid4(), text: step, title: "", summary: "", ingredientReferences: [], noteReferences: [], durationSeconds: null };
+      return { id: uuid4(), text: step, title: "", summary: "", ingredientReferences: [], noteReferences: [], toolReferences: [], stepReferences: [], durationSeconds: null };
     });
 
     instructions.push(...cleanedSteps);
@@ -550,6 +580,8 @@ function addStep(steps: Array<string> | null = null) {
       summary: "",
       ingredientReferences: [],
       noteReferences: [],
+      toolReferences: [],
+      stepReferences: [],
       durationSeconds: null,
     });
   }

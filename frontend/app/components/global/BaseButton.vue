@@ -13,6 +13,7 @@
     <v-icon
       v-if="!iconRight"
       start
+      :color="iconColor"
     >
       <slot name="icon">
         {{ icon || btnAttrs.icon }}
@@ -24,6 +25,7 @@
     <v-icon
       v-if="iconRight"
       end
+      :color="iconColor"
     >
       <slot name="icon">
         {{ icon || btnAttrs.icon }}
@@ -153,6 +155,11 @@ const buttonOptions = {
     color: "info",
   },
 };
+
+const slots = useSlots();
+
+// the cross of a cancel button is red, its text keeps the button colour
+const iconColor = computed(() => (props.cancel && !props.icon && !slots.icon ? "error" : undefined));
 
 const btnAttrs = computed(() => {
   if (props.delete) {

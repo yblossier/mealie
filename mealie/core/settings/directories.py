@@ -10,6 +10,7 @@ class AppDirectories:
         self.TEMPLATE_DIR = data_dir.joinpath("templates")
 
         self.GROUPS_DIR = self.DATA_DIR.joinpath("groups")
+        self.TOOLS_DIR = self.DATA_DIR.joinpath("tools")
 
         # Deprecated
         self._TEMP_DIR = data_dir.joinpath(".temp")
@@ -31,6 +32,7 @@ class AppDirectories:
             self.TEMPLATE_DIR,
             self.RECIPE_DATA_DIR,
             self.USER_DIR,
+            self.TOOLS_DIR,
         ]
 
         for dir in required_dirs:

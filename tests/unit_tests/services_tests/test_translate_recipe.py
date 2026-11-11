@@ -90,10 +90,16 @@ async def test_translating_keeps_the_structured_times():
     ctx = _ctx(response=_translation(None))
     ctx.draft_recipe = _draft("4 servings")
     assert ctx.draft_recipe.total_time_seconds == 600
+    ctx.draft_recipe.cooling_time_seconds = 3600
+    ctx.draft_recipe.rest_time_seconds = 900
+    ctx.draft_recipe.cooling_time = "über Nacht"
+    ctx.draft_recipe.rest_time = "im Kühlschrank"
 
     await TranslateRecipeStep().run(ctx)
 
     assert ctx.draft_recipe.total_time_seconds == 600
+    assert (ctx.draft_recipe.cooling_time_seconds, ctx.draft_recipe.rest_time_seconds) == (3600, 900)
+    assert (ctx.draft_recipe.cooling_time, ctx.draft_recipe.rest_time) == ("über Nacht", "im Kühlschrank")
 
 
 @pytest.mark.parametrize(

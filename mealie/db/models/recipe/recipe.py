@@ -89,9 +89,13 @@ class RecipeModel(SqlAlchemyBase, BaseMixins):
     total_time: FilterableColumn[str | None] = mapped_column(sa.String)
     prep_time: FilterableColumn[str | None] = mapped_column(sa.String)
     perform_time: FilterableColumn[str | None] = mapped_column(sa.String)
+    cooling_time: FilterableColumn[str | None] = mapped_column(sa.String)
+    rest_time: FilterableColumn[str | None] = mapped_column(sa.String)
     total_time_seconds: FilterableColumn[int | None] = mapped_column(sa.Integer)
     prep_time_seconds: FilterableColumn[int | None] = mapped_column(sa.Integer)
     perform_time_seconds: FilterableColumn[int | None] = mapped_column(sa.Integer)
+    cooling_time_seconds: FilterableColumn[int | None] = mapped_column(sa.Integer)
+    rest_time_seconds: FilterableColumn[int | None] = mapped_column(sa.Integer)
 
     recipe_yield: FilterableColumn[str | None] = mapped_column(sa.String)
     recipe_yield_quantity: FilterableColumn[float] = mapped_column(sa.Float, index=True, default=0)
@@ -211,6 +215,19 @@ class RecipeModel(SqlAlchemyBase, BaseMixins):
 
         if recipe_instructions is not None:
             self.recipe_instructions = [RecipeInstruction(**step, session=session) for step in recipe_instructions]
+            # Steps are recreated with new ids on every save, so the steps used as a base must follow
+            new_ids = {}
+            for step, instruction in zip(recipe_instructions, self.recipe_instructions, strict=True):
+                instruction.id = GUID.generate()
+                if step.get("id"):
+                    new_ids[str(step["id"])] = instruction.id
+            for instruction in self.recipe_instructions:
+                references = []
+                for ref in instruction.step_references:
+                    ref.reference_id = new_ids.get(str(ref.reference_id))
+                    if ref.reference_id:
+                        references.append(ref)
+                instruction.step_references = references
 
         if recipe_ingredient is not None:
             # group_id is passed down so ingredient substitutions can be scoped to this

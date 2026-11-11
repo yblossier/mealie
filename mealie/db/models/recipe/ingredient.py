@@ -16,6 +16,7 @@ from .._model_utils.guid import GUID
 if TYPE_CHECKING:
     from ..group import Group
     from ..household import Household
+    from .allergen import Allergen
     from .recipe import RecipeModel
 
 households_to_ingredient_foods = sa.Table(
@@ -26,13 +27,47 @@ households_to_ingredient_foods = sa.Table(
     sa.UniqueConstraint("household_id", "food_id", name="household_id_food_id_key"),
 )
 
+ingredient_foods_to_allergens = sa.Table(
+    "ingredient_foods_to_allergens",
+    SqlAlchemyBase.metadata,
+    sa.Column("food_id", GUID, sa.ForeignKey("ingredient_foods.id", ondelete="CASCADE"), index=True),
+    sa.Column("allergen_id", GUID, sa.ForeignKey("allergens.id", ondelete="CASCADE"), index=True),
+    sa.UniqueConstraint("food_id", "allergen_id", name="ingredient_foods_to_allergens_key"),
+)
+
+# the other foods of a combination substitution ("butter + flour"), the first one being substitute_food
+ingredient_foods_substitutions_additional_foods = sa.Table(
+    "ingredient_foods_substitutions_additional_foods",
+    SqlAlchemyBase.metadata,
+    sa.Column(
+        "substitution_id", GUID, sa.ForeignKey("ingredient_foods_substitutions.id", ondelete="CASCADE"), index=True
+    ),
+    sa.Column("food_id", GUID, sa.ForeignKey("ingredient_foods.id", ondelete="CASCADE"), index=True),
+    sa.UniqueConstraint("substitution_id", "food_id", name="ingredient_foods_substitutions_additional_foods_key"),
+)
+
+recipes_ingredients_substitutions_additional_foods = sa.Table(
+    "recipes_ingredients_substitutions_additional_foods",
+    SqlAlchemyBase.metadata,
+    sa.Column(
+        "substitution_id",
+        GUID,
+        sa.ForeignKey("recipes_ingredients_substitutions.id", ondelete="CASCADE"),
+        index=True,
+    ),
+    sa.Column("food_id", GUID, sa.ForeignKey("ingredient_foods.id", ondelete="CASCADE"), index=True),
+    sa.UniqueConstraint("substitution_id", "food_id", name="recipes_ingredients_substitutions_additional_foods_key"),
+)
+
+ResolvedSubstitution = tuple[GUID | None, str | None, list[GUID]]
+
 
 def resolve_substitutions(
     session: Session,
     group_id: GUID | None,
     substitutions: list[dict] | None,
     exclude_food_id: GUID | None = None,
-) -> list[tuple[GUID | None, str | None]]:
+) -> list[ResolvedSubstitution]:
     """
     Normalizes a substitution payload into (substitute_food_id, note) pairs safe to persist.
 
@@ -41,12 +76,17 @@ def resolve_substitutions(
     deleted, or belonging to another group -- invalidates the whole substitution, since the note
     qualifies the food it travels with. `exclude_food_id` rejects self-substitution the same
     way. Both tiers share this; only the row they build from it differs.
+
+    The additional foods of a combination are resolved the same way, but an unresolvable one is
+    simply dropped, along with any repeat of the substitute food or of the excluded food.
     """
 
     if not substitutions or not group_id:
         return []
 
     requested_food_ids = {sub.get("substitute_food_id") for sub in substitutions}
+    for sub in substitutions:
+        requested_food_ids.update(sub.get("additional_food_ids") or [])
     requested_food_ids.discard(None)
 
     resolvable_food_ids: set = set()
@@ -62,8 +102,8 @@ def resolve_substitutions(
             .all()
         )
 
-    resolved: list[tuple[GUID | None, str | None]] = []
-    seen_food_ids: set = set()
+    resolved: list[ResolvedSubstitution] = []
+    seen_combinations: set[frozenset] = set()
     for sub in substitutions:
         substitute_food_id = sub.get("substitute_food_id")
         note = (sub.get("note") or "").strip() or None
@@ -73,16 +113,27 @@ def resolve_substitutions(
             # two legitimate rows, and there is no id to collapse them on
             if not note:
                 continue
-        else:
-            if substitute_food_id not in resolvable_food_ids or substitute_food_id == exclude_food_id:
+        elif substitute_food_id not in resolvable_food_ids or substitute_food_id == exclude_food_id:
+            continue
+
+        additional_food_ids: list[GUID] = []
+        if substitute_food_id is not None:
+            for food_id in sub.get("additional_food_ids") or []:
+                if (
+                    food_id in resolvable_food_ids
+                    and food_id not in (substitute_food_id, exclude_food_id)
+                    and food_id not in additional_food_ids
+                ):
+                    additional_food_ids.append(food_id)
+
+            # a substitution is identified by its whole set of foods: "butter + flour" and
+            # "butter + oil" both stay, "butter + flour" and "flour + butter" are the same one
+            combination = frozenset([substitute_food_id, *additional_food_ids])
+            if combination in seen_combinations:
                 continue
+            seen_combinations.add(combination)
 
-            if substitute_food_id in seen_food_ids:
-                continue
-
-            seen_food_ids.add(substitute_food_id)
-
-        resolved.append((substitute_food_id, note))
+        resolved.append((substitute_food_id, note, additional_food_ids))
 
     return resolved
 
@@ -254,7 +305,32 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
         back_populates="substitute_food",
         cascade="all, delete, delete-orphan",
     )
+    # the combinations this food is part of; exists so deleting a food removes it from them
+    substitution_combinations: Mapped[list[IngredientFoodSubstitutionModel]] = orm.relationship(
+        "IngredientFoodSubstitutionModel",
+        secondary=ingredient_foods_substitutions_additional_foods,
+        back_populates="additional_foods",
+    )
+    recipe_substitution_combinations: Mapped[list[RecipeIngredientSubstitutionModel]] = orm.relationship(
+        "RecipeIngredientSubstitutionModel",
+        secondary=recipes_ingredients_substitutions_additional_foods,
+        back_populates="additional_foods",
+    )
+    allergens: Mapped[list[Allergen]] = orm.relationship(
+        "Allergen", secondary=ingredient_foods_to_allergens, back_populates="foods", order_by="Allergen.name"
+    )
     extras: Mapped[list[IngredientFoodExtras]] = orm.relationship("IngredientFoodExtras", cascade="all, delete-orphan")
+    nutrition: Mapped[IngredientFoodNutritionModel | None] = orm.relationship(
+        "IngredientFoodNutritionModel",
+        back_populates="food",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    nutrition_logs: Mapped[list[IngredientFoodNutritionLogModel]] = orm.relationship(
+        "IngredientFoodNutritionLogModel",
+        back_populates="food",
+        cascade="all, delete-orphan",
+    )
 
     label_id: FilterableColumn[GUID | None] = mapped_column(GUID, ForeignKey("multi_purpose_labels.id"), index=True)
     label: Mapped[MultiPurposeLabel | None] = orm.relationship(MultiPurposeLabel, uselist=False, back_populates="foods")
@@ -268,8 +344,22 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
             "households_with_ingredient_food",
             # substitutions are resolved explicitly, since auto_init creates rows it can't find
             "substitutions",
+            # resolved explicitly too, against the allergens of the group
+            "allergens",
+            # the existing row is updated in place, see _set_nutrition
+            "nutrition",
+            # written by the nutrition estimates only
+            "nutrition_logs",
         }
     )
+
+    average_weight: Mapped[float | None] = mapped_column(Float)
+    """Weight in grams of one piece of the food, for quantities given without a unit"""
+    nutrition_source: Mapped[str | None] = mapped_column(sa.String)
+    """Where the nutrition facts come from: ciqual, usda or ai; None when typed in by hand"""
+    nutrition_reference_code: Mapped[str | None] = mapped_column(sa.String)
+    """Code of the food in the composition table the nutrition facts come from"""
+    nutrition_reference_name: Mapped[str | None] = mapped_column(sa.String)
 
     # Deprecated
     on_hand: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -285,16 +375,31 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
             self.substitutions = []
             return
 
-        # Existing rows are reused rather than rebuilt. SQLAlchemy inserts before it deletes
-        # within a single flush, so replacing the collection wholesale would insert a copy of
-        # a row still on its way out and trip the (food_id, substitute_food_id) constraint.
-        reusable_by_food_id = {row.substitute_food_id: row for row in self.substitutions if row.substitute_food_id}
+        # Existing rows are reused rather than rebuilt, keeping their ids stable: the same
+        # combination first, then any row starting with the same food.
+        def combination_of(row: IngredientFoodSubstitutionModel) -> frozenset:
+            return frozenset([row.substitute_food_id, *row.additional_food_ids])
+
+        reusable_food_rows = [row for row in self.substitutions if row.substitute_food_id]
         reusable_note_only = [row for row in self.substitutions if not row.substitute_food_id]
 
+        def take_row(
+            substitute_food_id: GUID, additional_food_ids: list[GUID]
+        ) -> IngredientFoodSubstitutionModel | None:
+            combination = frozenset([substitute_food_id, *additional_food_ids])
+            candidates = [row for row in reusable_food_rows if combination_of(row) == combination] or [
+                row for row in reusable_food_rows if row.substitute_food_id == substitute_food_id
+            ]
+            if not candidates:
+                return None
+            reusable_food_rows.remove(candidates[0])
+            return candidates[0]
+
         rows: list[IngredientFoodSubstitutionModel] = []
-        for substitute_food_id, note in resolved:
+        additional_foods = _load_foods(session, resolved)
+        for substitute_food_id, note, additional_food_ids in resolved:
             if substitute_food_id is not None:
-                row = reusable_by_food_id.get(substitute_food_id)
+                row = take_row(substitute_food_id, additional_food_ids)
             else:
                 row = reusable_note_only.pop(0) if reusable_note_only else None
 
@@ -304,10 +409,48 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
                 row.substitute_food_id = substitute_food_id
                 row.note = note
 
+            row.additional_foods = [additional_foods[food_id] for food_id in additional_food_ids]
             rows.append(row)
 
         # rows left over are orphaned by the assignment and cascade-deleted
         self.substitutions = rows
+
+    def _set_allergens(self, session: Session, group_id: GUID, allergens: list[dict] | None) -> None:
+        from .allergen import Allergen
+
+        allergen_ids = {allergen.get("id") for allergen in allergens or [] if isinstance(allergen, dict)}
+        allergen_ids.discard(None)
+        if not allergen_ids:
+            self.allergens = []
+            return
+
+        self.allergens = (
+            session.query(Allergen).filter(Allergen.group_id == group_id, Allergen.id.in_(allergen_ids)).all()
+        )
+
+    def _set_nutrition(self, nutrition: dict | None) -> None:
+        """
+        Updates the existing nutrition row rather than replacing it, since the unique food_id
+        would otherwise be inserted again before the old row is deleted within the same flush.
+        A payload without any value removes the row.
+        """
+
+        nutrition = nutrition or {}
+        values: dict[str, str | None] = {}
+        for field in IngredientFoodNutritionModel.NUTRITION_FIELDS:
+            value = nutrition.get(field)
+            values[field] = str(value).strip() or None if value is not None else None
+
+        if not any(values.values()):
+            self.nutrition = None
+            return
+
+        if self.nutrition is None:
+            self.nutrition = IngredientFoodNutritionModel(**values)
+            return
+
+        for field, value in values.items():
+            setattr(self.nutrition, field, value)
 
     @api_extras
     @auto_init()
@@ -319,6 +462,8 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
         plural_name: str | None = None,
         households_with_ingredient_food: list[str] | None = None,
         substitutions: list[dict] | None = None,
+        nutrition: dict | None = None,
+        allergens: list[dict] | None = None,
         **_,
     ) -> None:
         from ..household import Household
@@ -338,6 +483,8 @@ class IngredientFoodModel(SqlAlchemyBase, BaseMixins):
             )
 
         self._set_substitutions(session, group_id, substitutions)
+        self._set_allergens(session, group_id, allergens)
+        self._set_nutrition(nutrition)
 
         tableargs = [
             sa.UniqueConstraint("name", "group_id", name="ingredient_foods_name_group_id_key"),
@@ -476,8 +623,9 @@ class IngredientFoodSubstitutionModel(SqlAlchemyBase, BaseMixins):
     """
 
     __tablename__ = "ingredient_foods_substitutions"
+    # No uniqueness on (food_id, substitute_food_id): combinations sharing their first food
+    # ("butter + flour", "butter + oil") coexist; resolve_substitutions dedupes on the full set of foods.
     __table_args__ = (
-        sa.UniqueConstraint("food_id", "substitute_food_id", name="ingredient_foods_substitutions_food_ids_key"),
         sa.CheckConstraint("food_id != substitute_food_id", name="ingredient_foods_substitutions_no_self_substitution"),
         sa.CheckConstraint(
             "substitute_food_id IS NOT NULL OR note IS NOT NULL",
@@ -501,8 +649,98 @@ class IngredientFoodSubstitutionModel(SqlAlchemyBase, BaseMixins):
 
     note: FilterableColumn[str | None] = mapped_column(String)
 
+    additional_foods: Mapped[list[IngredientFoodModel]] = orm.relationship(
+        "IngredientFoodModel",
+        secondary=ingredient_foods_substitutions_additional_foods,
+        back_populates="substitution_combinations",
+    )
+
     # note-only substitutions have no name to sort by, so display order is stored
     position: FilterableColumn[int | None] = mapped_column(Integer, index=True)
+
+    @property
+    def additional_food_ids(self) -> list[GUID]:
+        return [food.id for food in self.additional_foods]
+
+
+class IngredientFoodNutritionModel(SqlAlchemyBase, BaseMixins):
+    """
+    Nutrition facts of a food, per 100 g (or 100 ml for liquids).
+    Values are stored as strings, like recipe nutrition.
+    """
+
+    __tablename__ = "ingredient_foods_nutrition"
+
+    NUTRITION_FIELDS = (
+        "calories",
+        "carbohydrate_content",
+        "cholesterol_content",
+        "fat_content",
+        "fiber_content",
+        "protein_content",
+        "saturated_fat_content",
+        "sodium_content",
+        "sugar_content",
+        "trans_fat_content",
+        "unsaturated_fat_content",
+        "calcium_content",
+        "iron_content",
+        "magnesium_content",
+        "potassium_content",
+        "vitamin_a_content",
+        "vitamin_c_content",
+        "vitamin_d_content",
+    )
+
+    id: FilterableColumn[GUID] = mapped_column(GUID, primary_key=True, default=GUID.generate)
+
+    food_id: FilterableColumn[GUID] = mapped_column(
+        GUID, ForeignKey("ingredient_foods.id"), index=True, unique=True, nullable=False
+    )
+    food: Mapped[IngredientFoodModel] = orm.relationship("IngredientFoodModel", back_populates="nutrition")
+
+    calories: FilterableColumn[str | None] = mapped_column(String)
+    carbohydrate_content: FilterableColumn[str | None] = mapped_column(String)
+    cholesterol_content: FilterableColumn[str | None] = mapped_column(String)
+    fat_content: FilterableColumn[str | None] = mapped_column(String)
+    fiber_content: FilterableColumn[str | None] = mapped_column(String)
+    protein_content: FilterableColumn[str | None] = mapped_column(String)
+    saturated_fat_content: FilterableColumn[str | None] = mapped_column(String)
+    sodium_content: FilterableColumn[str | None] = mapped_column(String)
+    sugar_content: FilterableColumn[str | None] = mapped_column(String)
+    trans_fat_content: FilterableColumn[str | None] = mapped_column(String)
+    unsaturated_fat_content: FilterableColumn[str | None] = mapped_column(String)
+    calcium_content: FilterableColumn[str | None] = mapped_column(String)
+    iron_content: FilterableColumn[str | None] = mapped_column(String)
+    magnesium_content: FilterableColumn[str | None] = mapped_column(String)
+    potassium_content: FilterableColumn[str | None] = mapped_column(String)
+    vitamin_a_content: FilterableColumn[str | None] = mapped_column(String)
+    vitamin_c_content: FilterableColumn[str | None] = mapped_column(String)
+    vitamin_d_content: FilterableColumn[str | None] = mapped_column(String)
+
+
+class IngredientFoodNutritionLogModel(SqlAlchemyBase, BaseMixins):
+    """History of the AI nutrition estimates of a food: the raw answers, the retries and the corrections"""
+
+    __tablename__ = "ingredient_foods_nutrition_logs"
+
+    id: FilterableColumn[GUID] = mapped_column(GUID, primary_key=True, default=GUID.generate)
+    group_id: FilterableColumn[GUID] = mapped_column(GUID, ForeignKey("groups.id"), nullable=False, index=True)
+    food_id: FilterableColumn[GUID] = mapped_column(
+        GUID, ForeignKey("ingredient_foods.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    food: Mapped[IngredientFoodModel] = orm.relationship("IngredientFoodModel", back_populates="nutrition_logs")
+
+    origin: Mapped[str] = mapped_column(String, nullable=False)
+    ai_model: Mapped[str | None] = mapped_column(String)
+    steps: Mapped[list | None] = mapped_column(sa.JSON)
+    corrections: Mapped[list | None] = mapped_column(sa.JSON)
+    result: Mapped[dict | None] = mapped_column(sa.JSON)
+    error: Mapped[str | None] = mapped_column(String)
+
+    @auto_init()
+    def __init__(self, **_) -> None:
+        pass
 
 
 class RecipeIngredientModel(SqlAlchemyBase, BaseMixins):
@@ -562,9 +800,15 @@ class RecipeIngredientModel(SqlAlchemyBase, BaseMixins):
         reconcile with, and no unique constraint for a re-insert to collide with.
         """
 
+        resolved = resolve_substitutions(session, group_id, substitutions)
+        additional_foods = _load_foods(session, resolved)
         self.substitutions = [
-            RecipeIngredientSubstitutionModel(substitute_food_id=substitute_food_id, note=note)
-            for substitute_food_id, note in resolve_substitutions(session, group_id, substitutions)
+            RecipeIngredientSubstitutionModel(
+                substitute_food_id=substitute_food_id,
+                note=note,
+                additional_foods=[additional_foods[food_id] for food_id in additional_food_ids],
+            )
+            for substitute_food_id, note, additional_food_ids in resolved
         ]
 
     @auto_init()
@@ -662,8 +906,27 @@ class RecipeIngredientSubstitutionModel(SqlAlchemyBase, BaseMixins):
 
     note: FilterableColumn[str | None] = mapped_column(String)
 
+    additional_foods: Mapped[list[IngredientFoodModel]] = orm.relationship(
+        "IngredientFoodModel",
+        secondary=recipes_ingredients_substitutions_additional_foods,
+        back_populates="recipe_substitution_combinations",
+    )
+
     # note-only substitutions have no name to sort by, so display order is stored
     position: FilterableColumn[int | None] = mapped_column(Integer, index=True)
+
+    @property
+    def additional_food_ids(self) -> list[GUID]:
+        return [food.id for food in self.additional_foods]
+
+
+def _load_foods(session: Session, resolved: list[ResolvedSubstitution]) -> dict[GUID, IngredientFoodModel]:
+    food_ids = {food_id for _, _, additional_food_ids in resolved for food_id in additional_food_ids}
+    if not food_ids:
+        return {}
+
+    foods = session.query(IngredientFoodModel).filter(IngredientFoodModel.id.in_(food_ids)).all()
+    return {food.id: food for food in foods}
 
 
 @event.listens_for(IngredientUnitModel.name, "set")

@@ -1,8 +1,30 @@
 <template>
   <div v-if="valueNotNull || edit">
     <v-card class="mt-2">
-      <v-card-title class="pt-2 pb-0">
+      <v-card-title class="pt-2 pb-0 d-flex align-center">
         {{ $t("recipe.nutrition") }}
+        <div v-if="edit" class="ml-auto d-flex align-center ga-1">
+          <v-btn
+            v-if="valueNotNull"
+            icon
+            size="small"
+            variant="text"
+            color="error"
+            data-testid="clear-recipe-nutrition"
+            :title="$t('recipe.clear-nutrition')"
+            :aria-label="$t('recipe.clear-nutrition')"
+            @click="clearValues"
+          >
+            <v-icon>{{ $globals.icons.eraser }}</v-icon>
+          </v-btn>
+          <RecipeNutritionFillButton
+            v-if="recipe"
+            fab
+            compact
+            :recipe="recipe"
+            @fill="fillValues"
+          />
+        </div>
       </v-card-title>
       <v-card-subtitle class="pb-1">
         {{ $t("recipe.per-serving") }}
@@ -27,48 +49,47 @@
           />
         </div>
       </v-card-text>
-      <v-list
-        v-if="showViewer"
-        density="compact"
-        class="mt-0 pt-0"
-      >
-        <v-list-item
-          v-for="(item, key, index) in renderedList"
-          :key="index"
-          style="min-height: 25px"
-        >
-          <v-list-item-title class="pl-2 d-flex">
-            <div>{{ item.label }}</div>
-            <div class="ml-auto mr-1">
-              {{ item.value }}
-            </div>
-            <div>{{ item.suffix }}</div>
-          </v-list-item-title>
-        </v-list-item>
-      </v-list>
+      <v-card-text v-if="showViewer" class="pt-1">
+        <RecipeNutritionFactsLabel
+          :nutrition="modelValue"
+          :basis="$t('recipe.nutrition-facts-per-serving')"
+        />
+      </v-card-text>
     </v-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { parseNutritionValue, useNutritionLabels } from "~/composables/recipes";
-import type { Nutrition } from "~/lib/api/types/recipe";
-import type { NutritionLabelType } from "~/composables/recipes/use-recipe-nutrition";
+import type { Nutrition, RecipeOut } from "~/lib/api/types/recipe";
+import { alert } from "~/composables/use-toast";
+import RecipeNutritionFillButton from "./RecipeNutritionFillButton.vue";
+import RecipeNutritionFactsLabel from "./RecipeNutritionFactsLabel.vue";
 
 interface Props {
   edit?: boolean;
+  /** Enables computing the values from the ingredients while editing */
+  recipe?: RecipeOut | null;
 }
 const props = withDefaults(defineProps<Props>(), {
   edit: true,
+  recipe: null,
 });
 
 const modelValue = defineModel<Nutrition>({ required: true });
+
+const i18n = useI18n();
+
+function fillValues(nutrition: Nutrition) {
+  modelValue.value = { ...modelValue.value, ...nutrition };
+  alert.success(i18n.t("recipe.nutrition-filled-from-ingredients"));
+}
 
 const { labels } = useNutritionLabels();
 const valueNotNull = computed(() => {
   let key: keyof Nutrition;
   for (key in modelValue.value) {
-    if (modelValue.value[key] !== null) {
+    if (modelValue.value[key] !== null && modelValue.value[key] !== undefined && String(modelValue.value[key]).trim() !== "") {
       return true;
     }
   }
@@ -77,22 +98,13 @@ const valueNotNull = computed(() => {
 
 const showViewer = computed(() => !props.edit && valueNotNull.value);
 
+function clearValues() {
+  modelValue.value = Object.fromEntries(Object.keys(modelValue.value).map(key => [key, null])) as Nutrition;
+}
+
 function updateValue(key: number | string, value: number | null) {
   modelValue.value = { ...modelValue.value, [key]: value?.toString() ?? null };
 }
-
-// Build a new list that only contains nutritional information that has a value
-const renderedList = computed(() => {
-  return Object.entries(labels).reduce((item: NutritionLabelType, [key, label]) => {
-    if (modelValue.value[key]?.trim()) {
-      item[key] = {
-        ...label,
-        value: modelValue.value[key],
-      };
-    }
-    return item;
-  }, {});
-});
 </script>
 
 <style lang="scss" scoped></style>

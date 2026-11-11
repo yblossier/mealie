@@ -7,100 +7,57 @@
     max-width="816px"
   >
     <div class="pa-6">
-      <v-container class="print-config mb-3 pa-0">
-        <v-row>
-          <v-col
-            cols="auto"
-            align-self="center"
-            class="text-center"
+      <div class="print-config mb-3">
+        <div class="print-option print-option--image">
+          <v-switch
+            v-model="preferences.showImage"
+            hide-details
+            color="primary"
+            density="compact"
+            data-testid="print-show-image"
+            :label="$t('recipe.print-image')"
+          />
+          <v-btn-toggle
+            v-model="preferences.imagePosition"
+            mandatory="force"
+            density="compact"
+            variant="outlined"
+            divided
+            class="print-image-position flex-shrink-0"
+            data-testid="print-image-position"
+            :disabled="!preferences.showImage"
           >
-            <div
-              class="text-subtitle-2"
-              style="text-align: center;"
+            <v-btn
+              :value="ImagePosition.left"
+              :aria-label="$t('recipe.print-image-left')"
+              :title="$t('recipe.print-image-left')"
             >
-              {{ $t('recipe.recipe-image') }}
-            </div>
-            <v-btn-toggle
-              v-model="preferences.imagePosition"
-              mandatory="force"
-              style="width: fit-content;"
+              <v-icon>{{ $globals.icons.dockLeft }}</v-icon>
+            </v-btn>
+            <v-btn
+              :value="ImagePosition.right"
+              :aria-label="$t('recipe.print-image-right')"
+              :title="$t('recipe.print-image-right')"
             >
-              <v-btn :value="ImagePosition.left">
-                <v-icon>{{ $globals.icons.dockLeft }}</v-icon>
-              </v-btn>
-              <v-btn :value="ImagePosition.right">
-                <v-icon>{{ $globals.icons.dockRight }}</v-icon>
-              </v-btn>
-              <v-btn :value="ImagePosition.hidden">
-                <v-icon>{{ $globals.icons.windowClose }}</v-icon>
-              </v-btn>
-            </v-btn-toggle>
-          </v-col>
-          <v-col
-            cols="auto"
-            align-self="start"
-          >
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.showDescription"
-                hide-details
-                color="primary"
-                :label="$t('recipe.description')"
-              />
-            </v-row>
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.showNotes"
-                hide-details
-                color="primary"
-                :label="$t('recipe.notes')"
-              />
-            </v-row>
-          </v-col>
-          <v-col
-            cols="auto"
-            align-self="start"
-          >
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.showNutrition"
-                hide-details
-                color="primary"
-                :label="$t('recipe.nutrition')"
-              />
-            </v-row>
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.expandChildRecipes"
-                hide-details
-                color="primary"
-                :label="$t('recipe.include-linked-recipe-ingredients')"
-              />
-            </v-row>
-          </v-col>
-          <v-col
-            cols="auto"
-            align-self="start"
-          >
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.showLinkedIngredients"
-                hide-details
-                color="primary"
-                :label="$t('recipe.linked-ingredients')"
-              />
-            </v-row>
-            <v-row no-gutters>
-              <v-switch
-                v-model="preferences.showSubstitutions"
-                hide-details
-                color="primary"
-                :label="$t('recipe.substitutions')"
-              />
-            </v-row>
-          </v-col>
-        </v-row>
-      </v-container>
+              <v-icon>{{ $globals.icons.dockRight }}</v-icon>
+            </v-btn>
+          </v-btn-toggle>
+        </div>
+        <div
+          v-for="option in options"
+          :key="option.key"
+          class="print-option"
+        >
+          <v-switch
+            v-model="preferences[option.key]"
+            hide-details
+            color="primary"
+            density="compact"
+            :data-testid="option.testId"
+            :label="option.label"
+          />
+        </div>
+      </div>
       <v-card
         height="fit-content"
         max-height="40vh"
@@ -117,6 +74,7 @@
 <script setup lang="ts">
 import type { RecipeOut } from "~/lib/api/types/recipe";
 import { ImagePosition, useUserPrintPreferences } from "~/composables/use-users/preferences";
+import type { UserPrintPreferences } from "~/composables/use-users/preferences";
 import RecipePrintView from "~/components/Domain/Recipe/RecipePrintView.vue";
 
 interface Props {
@@ -128,4 +86,66 @@ withDefaults(defineProps<Props>(), {
 
 const dialog = defineModel<boolean>({ default: false });
 const preferences = useUserPrintPreferences();
+const i18n = useI18n();
+
+type BooleanPreference = {
+  [K in keyof UserPrintPreferences]: UserPrintPreferences[K] extends boolean ? K : never
+}[keyof UserPrintPreferences];
+
+const options = computed<{ key: BooleanPreference; label: string; testId?: string }[]>(() => [
+  { key: "showDescription", label: i18n.t("recipe.description") },
+  { key: "showNotes", label: i18n.t("recipe.notes") },
+  { key: "showNutrition", label: i18n.t("recipe.nutrition") },
+  { key: "showTools", label: i18n.t("recipe.print-tools"), testId: "print-show-tools" },
+  { key: "expandChildRecipes", label: i18n.t("recipe.include-linked-recipe-ingredients") },
+  { key: "showLinkedIngredients", label: i18n.t("recipe.linked-ingredients") },
+  { key: "showAllergens", label: i18n.t("recipe.allergy-title") },
+  { key: "showSubstitutions", label: i18n.t("recipe.substitutions") },
+]);
 </script>
+
+<style scoped>
+.print-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 4px 16px;
+  align-items: center;
+}
+
+.print-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.print-option :deep(.v-switch) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.print-option--image :deep(.v-switch) {
+  flex: 0 1 auto;
+}
+
+.print-image-position .v-btn {
+  height: auto;
+  min-width: 32px;
+  margin: 0;
+  padding: 0;
+}
+
+.print-option :deep(.v-selection-control) {
+  min-height: var(--v-selection-control-size);
+  height: auto;
+}
+
+.print-option :deep(.v-label) {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.2;
+  height: auto;
+}
+</style>

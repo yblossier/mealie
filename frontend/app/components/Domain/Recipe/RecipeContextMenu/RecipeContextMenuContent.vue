@@ -87,6 +87,7 @@ import { useGroupRecipeActions } from "~/composables/use-group-recipe-actions";
 import { useGroupSelf } from "~/composables/use-groups";
 import { useHouseholdSelf } from "~/composables/use-households";
 import { useLoggedInState } from "~/composables/use-logged-in-state";
+import { ImagePosition, useUserPrintPreferences } from "~/composables/use-users/preferences";
 import { alert, loader } from "~/composables/use-toast";
 import type { GroupRecipeActionOut, HouseholdSummary } from "~/lib/api/types/household";
 import type { RecipeOut } from "~/lib/api/types/recipe";
@@ -161,6 +162,7 @@ const emit = defineEmits<{
 }>();
 
 const api = useUserApi();
+const printPreferences = useUserPrintPreferences();
 const { open: shoppingListDialog, shoppingLists, getShoppingLists, addShoppingList } = useAddToShoppingListDialog();
 
 const printPreferencesDialog = ref(false);
@@ -393,7 +395,10 @@ async function handleDownloadPdfEvent() {
   // The menu closes on click, so a toast is the only place left to show that a PDF is coming.
   loader.info(i18n.t("recipe.preparing-pdf"));
   try {
-    await download(api.recipes.getPdfUrl(props.slug), `${props.slug}.pdf`);
+    await download(api.recipes.getPdfUrl(props.slug, {
+      includeImages: printPreferences.value.showImage && printPreferences.value.imagePosition !== ImagePosition.hidden,
+      includeTools: printPreferences.value.showTools,
+    }), `${props.slug}.pdf`);
   }
   finally {
     loader.close();

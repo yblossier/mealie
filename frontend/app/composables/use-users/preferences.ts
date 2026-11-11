@@ -5,10 +5,13 @@ import type { QueryFilterJSON } from "~/lib/api/types/non-generated";
 
 export interface UserPrintPreferences {
   imagePosition: string;
+  showImage: boolean;
   showDescription: boolean;
   showLinkedIngredients: boolean;
   showNotes: boolean;
   showNutrition: boolean;
+  showTools: boolean;
+  showAllergens: boolean;
   showSubstitutions: boolean;
   expandChildRecipes: boolean;
 }
@@ -111,15 +114,23 @@ export function useUserPrintPreferences(): Ref<UserPrintPreferences> {
     "recipe-print-preferences",
     {
       imagePosition: "left" as ImagePosition,
+      showImage: true,
       showDescription: true,
       showLinkedIngredients: false,
       showNotes: true,
       showNutrition: false,
+      showTools: true,
+      showAllergens: true,
       showSubstitutions: true,
       expandChildRecipes: false,
     },
     { mergeDefaults: true },
   );
+
+  // Legacy "hidden" placement is now expressed by the showImage switch
+  if (fromStorage.value.imagePosition === ImagePosition.hidden) {
+    fromStorage.value = { ...fromStorage.value, showImage: false, imagePosition: ImagePosition.left };
+  }
 
   return fromStorage;
 }

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from slugify import slugify
-from sqlalchemy import Boolean, Column, ForeignKey, String, Table, UniqueConstraint, literal, orm
+from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, UniqueConstraint, literal, orm
 from sqlalchemy.orm import Mapped, mapped_column, query_expression
 
 from mealie.db.models._model_base import BaseMixins, FilterableColumn, SqlAlchemyBase
@@ -50,6 +50,24 @@ class Tool(SqlAlchemyBase, BaseMixins):
     name: FilterableColumn[str] = mapped_column(String, index=True, nullable=False)
     slug: FilterableColumn[str] = mapped_column(String, index=True, nullable=False)
     recipe_count: Mapped[int] = query_expression(default_expr=literal(0))
+    category: FilterableColumn[str] = mapped_column(
+        String, nullable=False, default="utensils", server_default="utensils"
+    )
+    image: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Dishes: size in centimeters, either length x width x height or a diameter for round dishes
+    dish_shape: Mapped[str | None] = mapped_column(String, nullable=True)
+    length: Mapped[float | None] = mapped_column(Float, nullable=True)
+    width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    diameter: Mapped[float | None] = mapped_column(Float, nullable=True)
+    usages: Mapped[str | None] = mapped_column(String, nullable=True)
+    """Comma separated, kept as text so backups restore it like any other column."""
+
+    # Appliances: the appliance an accessory can't be used without
+    parent_id: FilterableColumn[GUID | None] = mapped_column(
+        GUID, ForeignKey("tools.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     households_with_tool: Mapped[list[Household]] = orm.relationship(
         "Household", secondary=households_to_tools, back_populates="tools_on_hand"
@@ -66,6 +84,12 @@ class Tool(SqlAlchemyBase, BaseMixins):
 
     # Deprecated
     on_hand: Mapped[bool | None] = mapped_column(Boolean, default=False)
+
+    @orm.validates("usages")
+    def _join_usages(self, _key: str, value: str | list[str] | None) -> str | None:
+        if isinstance(value, list):
+            return ",".join(str(usage) for usage in value) or None
+        return value or None
 
     @auto_init()
     def __init__(

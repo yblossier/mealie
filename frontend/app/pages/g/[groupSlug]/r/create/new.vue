@@ -25,6 +25,16 @@
           persistent-hint
           @keyup.enter="createByName(newRecipeName)"
         />
+        <v-switch
+          v-model="newRecipeThermomix"
+          :label="$t('recipe.thermomix.recipe-for')"
+          :hint="$t('recipe.thermomix.recipe-for-hint')"
+          persistent-hint
+          color="success"
+          density="comfortable"
+          class="mt-4"
+          data-testid="new-recipe-thermomix"
+        />
       </v-form>
     </v-card-text>
     <v-card-actions class="justify-center">
@@ -68,13 +78,14 @@ function handleResponse(response: AxiosResponse<string> | null, edit = false) {
 }
 
 const newRecipeName = ref("");
+const newRecipeThermomix = ref(false);
 const domCreateByName = ref<VForm | null>(null);
 
 async function createByName(name: string) {
   if (!domCreateByName.value?.validate() || name === "") {
     return;
   }
-  const { response } = await api.recipes.createOne({ name });
+  const { response } = await api.recipes.createOne({ name, thermomix: newRecipeThermomix.value });
   handleResponse(response as any, true);
 }
 </script>

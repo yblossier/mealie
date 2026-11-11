@@ -285,3 +285,158 @@ def test_deleting_a_substitute_food_removes_the_substitution(api_client: TestCli
 
     assert [sub["substituteFoodId"] for sub in remaining] == [kept["id"], None]
     assert remaining[1]["note"] == "or use tofu"
+
+
+def test_food_substitution_combination_round_trip(api_client: TestClient, unique_user: TestUser):
+    butter = create_food(unique_user, api_client)
+    flour = create_food(unique_user, api_client)
+    milk = create_food(unique_user, api_client)
+    food = create_food(unique_user, api_client)
+
+    update_food(
+        unique_user,
+        api_client,
+        food,
+        [
+            {
+                "substituteFoodId": butter["id"],
+                # the main food, the food itself and a duplicate are dropped from the combination
+                "additionalFoodIds": [flour["id"], milk["id"], flour["id"], butter["id"], food["id"]],
+                "note": "melt the butter first",
+            }
+        ],
+    )
+
+    stored = get_food(unique_user, api_client, food["id"])["substitutions"]
+    assert len(stored) == 1
+    assert stored[0]["substituteFoodId"] == butter["id"]
+    assert sorted(stored[0]["additionalFoodIds"]) == sorted([flour["id"], milk["id"]])
+    assert {f["name"] for f in stored[0]["additionalFoods"]} == {flour["name"], milk["name"]}
+    assert stored[0]["note"] == "melt the butter first"
+
+    update_food(unique_user, api_client, food, [{"substituteFoodId": butter["id"]}])
+    stored = get_food(unique_user, api_client, food["id"])["substitutions"]
+    assert stored[0]["additionalFoodIds"] == []
+
+
+def test_recipe_substitution_combination_round_trip(api_client: TestClient, unique_user: TestUser):
+    butter = create_food(unique_user, api_client)
+    flour = create_food(unique_user, api_client)
+
+    recipe = create_recipe_with_substitutions(
+        unique_user,
+        api_client,
+        [{"substituteFoodId": butter["id"], "additionalFoodIds": [flour["id"]]}],
+    )
+
+    stored = recipe["recipeIngredient"][0]["substitutions"]
+    assert stored[0]["substituteFoodId"] == butter["id"]
+    assert stored[0]["additionalFoodIds"] == [flour["id"]]
+    assert stored[0]["additionalFoods"][0]["name"] == flour["name"]
+
+
+def test_combination_without_main_food_is_ignored(api_client: TestClient, unique_user: TestUser):
+    flour = create_food(unique_user, api_client)
+    food = create_food(unique_user, api_client, substitutions=[{"note": "roux", "additionalFoodIds": [flour["id"]]}])
+
+    stored = get_food(unique_user, api_client, food["id"])["substitutions"]
+    assert stored[0]["note"] == "roux"
+    assert stored[0]["additionalFoodIds"] == []
+
+
+def test_food_combinations_sharing_their_first_food_coexist(api_client: TestClient, unique_user: TestUser):
+    """
+    "butter + flour" and "butter + oil" are two substitutions, though both start with butter;
+    only a repeat of the same set of foods, in any order, is dropped.
+    """
+
+    butter = create_food(unique_user, api_client)
+    flour = create_food(unique_user, api_client)
+    oil = create_food(unique_user, api_client)
+    food = create_food(
+        unique_user,
+        api_client,
+        substitutions=[
+            {"substituteFoodId": butter["id"], "additionalFoodIds": [flour["id"]], "note": "roux"},
+            {"substituteFoodId": butter["id"], "additionalFoodIds": [oil["id"]], "note": "half and half"},
+            {"substituteFoodId": butter["id"]},
+            {"substituteFoodId": flour["id"], "additionalFoodIds": [butter["id"]]},
+        ],
+    )
+
+    def combinations(food_id: str) -> list[tuple[str, list[str], str | None]]:
+        stored = get_food(unique_user, api_client, food_id)["substitutions"]
+        return [(sub["substituteFoodId"], sub["additionalFoodIds"], sub["note"]) for sub in stored]
+
+    expected = [
+        (butter["id"], [flour["id"]], "roux"),
+        (butter["id"], [oil["id"]], "half and half"),
+        (butter["id"], [], None),
+    ]
+    assert combinations(food["id"]) == expected
+
+    # a resave keeps all of them, and a new combination with the same first food can be added
+    update_food(
+        unique_user,
+        api_client,
+        food,
+        [
+            {"substituteFoodId": butter["id"], "additionalFoodIds": [flour["id"]], "note": "roux"},
+            {"substituteFoodId": butter["id"], "additionalFoodIds": [oil["id"]], "note": "half and half"},
+            {"substituteFoodId": butter["id"]},
+            {"substituteFoodId": butter["id"], "additionalFoodIds": [flour["id"], oil["id"]]},
+        ],
+    )
+    stored = combinations(food["id"])
+    assert stored[:3] == expected
+    assert len(stored) == 4
+    assert stored[3][0] == butter["id"]
+    assert sorted(stored[3][1]) == sorted([flour["id"], oil["id"]])
+
+
+def test_food_update_with_the_full_page_payload_keeps_several_substitutions(
+    api_client: TestClient, unique_user: TestUser
+):
+    """
+    The foods page sends the whole food back as it read it, page-only fields and expanded
+    substitute foods included, with the dialog's rows added to the ones already saved.
+    """
+
+    butter = create_food(unique_user, api_client)
+    flour = create_food(unique_user, api_client)
+    oil = create_food(unique_user, api_client)
+    milk = create_food(unique_user, api_client)
+    food = create_food(unique_user, api_client, substitutions=[{"substituteFoodId": milk["id"]}])
+
+    payload = get_food(unique_user, api_client, food["id"])
+    payload["onHand"] = False
+    payload["hasNutrition"] = False
+    payload["substitutions"] = [
+        *payload["substitutions"],
+        {"substituteFoodId": butter["id"], "additionalFoodIds": [flour["id"]], "note": "roux"},
+        {"substituteFoodId": butter["id"], "additionalFoodIds": [oil["id"]], "note": None},
+        {"substituteFoodId": oil["id"], "additionalFoodIds": [], "note": None},
+        {"substituteFoodId": None, "additionalFoodIds": [], "note": "water"},
+    ]
+    response = api_client.put(api_routes.foods_item_id(food["id"]), json=payload, headers=unique_user.token)
+    assert response.status_code == 200, response.text
+
+    stored = get_food(unique_user, api_client, food["id"])["substitutions"]
+    assert [(sub["substituteFoodId"], sub["additionalFoodIds"], sub["note"]) for sub in stored] == [
+        (milk["id"], [], None),
+        (butter["id"], [flour["id"]], "roux"),
+        (butter["id"], [oil["id"]], None),
+        (oil["id"], [], None),
+        (None, [], "water"),
+    ]
+    assert stored[1]["substituteFood"]["name"] == butter["name"]
+    assert stored[1]["additionalFoods"][0]["name"] == flour["name"]
+
+    # sent back unchanged, as the page does when only another field was edited
+    payload = get_food(unique_user, api_client, food["id"])
+    response = api_client.put(api_routes.foods_item_id(food["id"]), json=payload, headers=unique_user.token)
+    assert response.status_code == 200, response.text
+    assert len(get_food(unique_user, api_client, food["id"])["substitutions"]) == 5
+
+    listed = api_client.get(api_routes.foods, params={"perPage": -1}, headers=unique_user.token).json()["items"]
+    assert len(next(item for item in listed if item["id"] == food["id"])["substitutions"]) == 5

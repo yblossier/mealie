@@ -2265,6 +2265,35 @@ def test_patch_organizer_slug_match_is_scoped_to_group(
     assert first_tag["id"] != second_tag["id"]
 
 
+def test_patch_recipe_nutrition_and_settings(api_client: TestClient, unique_user: TestUser):
+    """The recipe page saves the nutrition calculated from the ingredients with a partial update"""
+    response = api_client.post(api_routes.recipes, json={"name": random_string()}, headers=unique_user.token)
+    assert response.status_code == 201
+    slug = response.json()
+
+    response = api_client.get(api_routes.recipes_slug(slug), headers=unique_user.token)
+    original = utils.assert_deserialize(response, 200)
+    show_nutrition = not original["settings"]["showNutrition"]
+
+    nutrition = {"calories": "250", "proteinContent": "12.5", "fatContent": None, "calciumContent": "120"}
+    response = api_client.patch(
+        api_routes.recipes_slug(slug),
+        json={"nutrition": nutrition, "settings": {**original["settings"], "showNutrition": show_nutrition}},
+        headers=unique_user.token,
+    )
+    assert response.status_code == 200
+
+    response = api_client.get(api_routes.recipes_slug(slug), headers=unique_user.token)
+    recipe = utils.assert_deserialize(response, 200)
+    assert recipe["nutrition"]["calories"] == "250"
+    assert recipe["nutrition"]["proteinContent"] == "12.5"
+    assert recipe["nutrition"]["fatContent"] is None
+    assert recipe["nutrition"]["calciumContent"] == "120"
+    assert recipe["settings"]["showNutrition"] is show_nutrition
+    assert recipe["name"] == original["name"]
+    assert recipe["settings"]["public"] == original["settings"]["public"]
+
+
 def test_put_recipe_name_change_updates_slug(api_client: TestClient, unique_user: TestUser):
     original_name = "Original Recipe Name"
     renamed_name = "Renamed Recipe Name"

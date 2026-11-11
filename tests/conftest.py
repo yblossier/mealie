@@ -25,6 +25,8 @@ mp = MonkeyPatch()
 mp.setenv("PRODUCTION", "True")
 mp.setenv("TESTING", "True")
 mp.setenv("ALLOW_SIGNUP", "True")
+# the tests never reach Open Food Facts, its own tests mock it
+mp.setenv("NUTRITION_OPEN_FOOD_FACTS", "False")
 if _WORKER_ID:
     mp.setenv("DATA_DIR", f"tests/.temp/{_WORKER_ID}")
 
@@ -87,6 +89,18 @@ def isolate_session_cookies(api_client: TestClient):
     api_client.cookies.clear()
     yield
     api_client.cookies.clear()
+
+
+@fixture(autouse=True)
+def offline_ciqual_refresh(monkeypatch: MonkeyPatch):
+    """The tests never download the Ciqual table from data.gouv.fr, its own tests mock it"""
+    import httpx
+
+    from mealie.services.recipe.ciqual_import import CiqualDataverseClient
+
+    monkeypatch.setattr(
+        CiqualDataverseClient, "transport", httpx.MockTransport(lambda request: httpx.Response(503)), raising=False
+    )
 
 
 @fixture(scope="session")

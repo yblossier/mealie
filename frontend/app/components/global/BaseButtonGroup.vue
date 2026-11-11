@@ -24,6 +24,7 @@
             icon
             :color="btn.color"
             :large="large"
+            :size="size"
             :disabled="btn.disabled"
             :loading="btn.loading"
             :style="stretch ? `width: ${maxButtonWidth};` : ''"
@@ -56,6 +57,10 @@ const props = defineProps({
   stretch: {
     type: Boolean,
     default: false,
+  },
+  size: {
+    type: String,
+    default: undefined,
   },
 });
 

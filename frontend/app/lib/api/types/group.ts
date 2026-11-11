@@ -17,6 +17,7 @@ export type SupportedMigrations =
   | "myrecipebox"
   | "recipekeeper"
   | "cookn";
+export type OpenFoodFactsMode = "prod" | "dev";
 
 export interface AIPromptOut {
   name: string;
@@ -110,6 +111,26 @@ export interface AIProviderUpdate {
 export interface DataMigrationCreate {
   sourceType: SupportedMigrations;
 }
+export interface FoodCompositionCiqualUpdate {
+  url: string;
+}
+export interface FoodCompositionSourceCount {
+  source: string;
+  importedCount: number;
+  apiCount: number;
+  bundled: boolean;
+}
+export interface FoodCompositionStatus {
+  ciqualUrl: string;
+  ciqualDefaultUrl: string;
+  ciqualStatus: string;
+  ciqualVersion: string | null;
+  ciqualReleaseTime: string | null;
+  ciqualImportedAt: string | null;
+  ciqualStartedAt: string | null;
+  ciqualError: string | null;
+  sources: FoodCompositionSourceCount[];
+}
 export interface GroupAdminUpdate {
   id: string;
   name: string;
@@ -119,6 +140,20 @@ export interface GroupAdminUpdate {
 export interface GroupPreferencesUpdate {
   privateGroup?: boolean;
   showAnnouncements?: boolean;
+  defaultTablePageSize?: number;
+  toolSuppliers?: ToolSupplier[];
+  showToolSupplierLinks?: boolean;
+  offMode?: OpenFoodFactsMode;
+  offAppName?: string | null;
+  offAppVersion?: string | null;
+  offAppUuid?: string | null;
+  usdaApiEnabled?: boolean;
+  usdaApiKey?: string | null;
+}
+export interface ToolSupplier {
+  name: string;
+  url: string;
+  enabled?: boolean;
 }
 export interface GroupDataExport {
   id: string;
@@ -132,13 +167,31 @@ export interface GroupDataExport {
 export interface GroupPreferencesCreate {
   privateGroup?: boolean;
   showAnnouncements?: boolean;
+  defaultTablePageSize?: number;
+  toolSuppliers?: ToolSupplier[];
+  showToolSupplierLinks?: boolean;
+  offMode?: OpenFoodFactsMode;
+  offAppName?: string | null;
+  offAppVersion?: string | null;
+  offAppUuid?: string | null;
+  usdaApiEnabled?: boolean;
+  usdaApiKey?: string | null;
   groupId: string;
 }
 export interface GroupPreferencesOut {
   privateGroup: boolean;
   showAnnouncements: boolean;
+  defaultTablePageSize: number;
+  toolSuppliers: ToolSupplier[];
+  showToolSupplierLinks: boolean;
+  offMode: OpenFoodFactsMode;
+  offAppName: string | null;
+  offAppVersion: string | null;
+  offAppUuid: string | null;
+  usdaApiEnabled: boolean;
   groupId: string;
   id: string;
+  usdaApiKeySet: boolean;
 }
 export interface GroupStorage {
   usedStorageBytes: number;

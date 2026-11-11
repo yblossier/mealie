@@ -3,12 +3,12 @@ from .datetime_parse import DateError, DateTimeError, DurationError, TimeError
 from .mealie_model import HasUUID, MealieModel, MealieOutModel, SearchType
 
 __all__ = [
-    "HasUUID",
-    "MealieModel",
-    "MealieOutModel",
-    "SearchType",
     "DateError",
     "DateTimeError",
     "DurationError",
     "TimeError",
+    "HasUUID",
+    "MealieModel",
+    "MealieOutModel",
+    "SearchType",
 ]

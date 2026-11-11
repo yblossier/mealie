@@ -11,6 +11,46 @@ export interface OpenAICompiledSource {
   language?: string | null;
   image_url?: string | null;
 }
+export interface OpenAIFoodAllergens {
+  name: string;
+  allergens?: string[];
+}
+export interface OpenAIFoodNutrition {
+  name?: string | null;
+  calories?: number | null;
+  carbohydrate_content?: number | null;
+  cholesterol_content?: number | null;
+  fat_content?: number | null;
+  fiber_content?: number | null;
+  protein_content?: number | null;
+  saturated_fat_content?: number | null;
+  sodium_content?: number | null;
+  sugar_content?: number | null;
+  trans_fat_content?: number | null;
+  unsaturated_fat_content?: number | null;
+  calcium_content?: number | null;
+  iron_content?: number | null;
+  magnesium_content?: number | null;
+  potassium_content?: number | null;
+  vitamin_a_content?: number | null;
+  vitamin_c_content?: number | null;
+  vitamin_d_content?: number | null;
+  average_weight?: number | null;
+}
+export interface OpenAIFoodNutritionMatch {
+  name?: string | null;
+  reference?: string | null;
+  average_weight?: number | null;
+}
+export interface OpenAIFoodNutritionMatches {
+  foods?: OpenAIFoodNutritionMatch[];
+}
+export interface OpenAIFoodsAllergens {
+  foods?: OpenAIFoodAllergens[];
+}
+export interface OpenAIFoodsNutrition {
+  foods?: OpenAIFoodNutrition[];
+}
 export interface OpenAIIngredient {
   quantity?: number | null;
   unit?: string | null;
@@ -76,5 +116,24 @@ export interface OpenAIRecipeNutrition {
 }
 export interface OpenAIText {
   text: string;
+}
+export interface OpenAIThermomixStep {
+  title?: string | null;
+  text: string;
+  time_seconds?: number | null;
+  cooking_seconds?: number | null;
+  rest_seconds?: number | null;
+  cooling_seconds?: number | null;
+  temperature?: string | null;
+  speed?: string | null;
+  reverse?: boolean | null;
+  accessory?: string | null;
+  source_steps?: number[];
+  tools?: string[];
+  cautions?: string[];
+}
+export interface OpenAIThermomixView {
+  steps?: OpenAIThermomixStep[];
+  notes?: string[];
 }
 export interface OpenAIBase {}

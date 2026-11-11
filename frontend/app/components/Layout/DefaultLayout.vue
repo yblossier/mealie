@@ -205,7 +205,7 @@ const createLinks = computed(() => [
   },
   {
     insertDivider: false,
-    icon: $globals.icons.autoFix,
+    icon: $globals.icons.robot,
     title: i18n.t("recipe.import-with-ai"),
     subtitle: i18n.t("recipe.import-with-ai-subtitle"),
     to: `/g/${groupSlug.value}/r/create/ai`,

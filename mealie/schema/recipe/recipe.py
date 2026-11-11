@@ -71,6 +71,8 @@ class RecipeUrlBulkCreate(BaseModel):
 
 class RecipeCreate(MealieModel):
     name: str
+    thermomix: bool = False
+    """The recipe is written for the Thermomix"""
 
 
 MAX_DURATION_SECONDS = 2**31 - 1
@@ -112,9 +114,13 @@ class RecipeDraft(MealieModel):
     total_time: str | None = None
     prep_time: str | None = None
     perform_time: str | None = None
+    cooling_time: str | None = None
+    rest_time: str | None = None
     total_time_seconds: DurationSeconds | None = None
     prep_time_seconds: DurationSeconds | None = None
     perform_time_seconds: DurationSeconds | None = None
+    cooling_time_seconds: DurationSeconds | None = None
+    rest_time_seconds: DurationSeconds | None = None
 
     description: str | None = ""
     recipe_category: Annotated[list[CategoryDraft], Field(validate_default=True)] = []
@@ -162,7 +168,9 @@ class RecipeDraft(MealieModel):
     def clean_numbers(val: Any):
         return val or 0
 
-    @field_validator("recipe_yield", "total_time", "prep_time", "perform_time", mode="before")
+    @field_validator(
+        "recipe_yield", "total_time", "prep_time", "perform_time", "cooling_time", "rest_time", mode="before"
+    )
     def clean_strings(val: Any):
         if val is None:
             return val
@@ -257,9 +265,13 @@ class RecipeSummary(MealieOutModel):
     total_time: str | None = None
     prep_time: str | None = None
     perform_time: str | None = None
+    cooling_time: str | None = None
+    rest_time: str | None = None
     total_time_seconds: DurationSeconds | None = None
     prep_time_seconds: DurationSeconds | None = None
     perform_time_seconds: DurationSeconds | None = None
+    cooling_time_seconds: DurationSeconds | None = None
+    rest_time_seconds: DurationSeconds | None = None
 
     description: str | None = ""
     recipe_category: list[CategoryOut] = []
@@ -389,8 +401,13 @@ class RecipeOut(RecipeSummary):
             selectinload(RecipeModel.recipe_ingredient)
             .selectinload(RecipeIngredientModel.substitutions)
             .joinedload(RecipeIngredientSubstitutionModel.substitute_food),
+            selectinload(RecipeModel.recipe_ingredient)
+            .selectinload(RecipeIngredientModel.substitutions)
+            .selectinload(RecipeIngredientSubstitutionModel.additional_foods),
             selectinload(RecipeModel.recipe_instructions).joinedload(RecipeInstruction.ingredient_references),
             selectinload(RecipeModel.recipe_instructions).joinedload(RecipeInstruction.note_references),
+            selectinload(RecipeModel.recipe_instructions).joinedload(RecipeInstruction.tool_references),
+            selectinload(RecipeModel.recipe_instructions).joinedload(RecipeInstruction.step_references),
             joinedload(RecipeModel.nutrition),
             joinedload(RecipeModel.settings),
             # for whatever reason, joinedload can mess up the order here, so use selectinload just this once

@@ -15,7 +15,7 @@ from mealie.db.models.users.users import AuthMethod, LongLiveToken
 from mealie.schema._mealie import MealieModel
 from mealie.schema._mealie.mealie_model import MealieOutModel
 from mealie.schema.group.ai_providers import AIProviderSettingsOut
-from mealie.schema.group.group_preferences import GroupPreferencesOut
+from mealie.schema.group.group_preferences import GroupPreferencesOut, TablePageSize
 from mealie.schema.household.webhook import WebhookCreate, WebhookOut
 from mealie.schema.response.pagination import PaginationBase
 
@@ -125,6 +125,9 @@ class UserBase(MealieModel):
     # Announcements
     show_announcements: bool = True
     last_read_announcement: str | None = None
+
+    # Overrides the group default page size of the configuration tables
+    table_page_size: TablePageSize | None = None
 
     # Permissions
     can_invite: bool = False

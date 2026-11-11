@@ -10,6 +10,7 @@ const routes = {
   cleanTemp: `${prefix}/admin/maintenance/clean/temp`,
   cleanImages: `${prefix}/admin/maintenance/clean/images`,
   cleanRecipeFolders: `${prefix}/admin/maintenance/clean/recipe-folders`,
+  cleanDatabase: `${prefix}/admin/maintenance/clean/database`,
 };
 
 export class AdminMaintenanceApi extends BaseAPI {
@@ -31,5 +32,9 @@ export class AdminMaintenanceApi extends BaseAPI {
 
   async cleanRecipeFolders() {
     return await this.requests.post<SuccessResponse>(routes.cleanRecipeFolders, {});
+  }
+
+  async cleanDatabase() {
+    return await this.requests.post<SuccessResponse>(routes.cleanDatabase, {});
   }
 }

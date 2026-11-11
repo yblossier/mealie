@@ -1,7 +1,9 @@
 import json
+import re
 
 from rapidfuzz import fuzz
 
+from mealie.db.models.recipe.ingredient import IngredientFoodModel
 from mealie.schema.openai.recipe_ingredient import OpenAIIngredient, OpenAIIngredients
 from mealie.schema.recipe.recipe_ingredient import (
     IngredientConfidence,
@@ -18,6 +20,8 @@ from ..parser_utils import extract_quantity_from_string
 
 
 class OpenAIParser(ABCIngredientParser):
+    MAX_FOOD_REFERENCES = 150
+
     def _calculate_qty_conf(self, original_text: str, parsed_qty: float | None) -> float:
         """Compares the extracted quantity to a brute-force parsed quantity."""
 
@@ -137,28 +141,104 @@ class OpenAIParser(ABCIngredientParser):
 
         return self.find_ingredient_match(parsed_ingredient)
 
-    def _get_prompt(self, service: OpenAIService) -> str:
-        if self.data_matcher.units_by_alias:
-            data_injections = [
+    @staticmethod
+    def _reference_line(name: str, alternatives: list[str | None]) -> str:
+        """Formats one reference entry as `name: alias, alias`, keeping each alternative once."""
+
+        seen = {name.casefold()}
+        aliases: list[str] = []
+        for alternative in alternatives:
+            if alternative and alternative.strip() and alternative.strip().casefold() not in seen:
+                seen.add(alternative.strip().casefold())
+                aliases.append(alternative.strip())
+
+        return f"{name}: {', '.join(aliases)}" if aliases else name
+
+    @staticmethod
+    def _tokens(text: str) -> list[str]:
+        """Normalized words with a trailing plural `s` or `x` removed, so singular and plural forms compare equal."""
+
+        words = re.findall(r"[a-z0-9]+", IngredientFoodModel.normalize(text))
+        return [word[:-1] if len(word) > 3 and word[-1] in "sx" else word for word in words]
+
+    def _unit_references(self) -> list[str]:
+        return sorted(
+            self._reference_line(
+                unit.name,
+                [
+                    unit.plural_name,
+                    unit.abbreviation,
+                    unit.plural_abbreviation,
+                    *(alias.name for alias in unit.aliases or []),
+                ],
+            )
+            for unit in self.data_matcher.units_by_id.values()
+            if unit.name
+        )
+
+    def _food_references(self, ingredients: list[str]) -> list[str]:
+        """
+        Foods whose name, plural or alias appears in the ingredients. Sending only these candidates keeps the
+        prompt small, whatever the size of the foods database.
+        """
+
+        input_text = f" {' '.join(' '.join(self._tokens(ingredient)) for ingredient in ingredients)} "
+        candidates: list[tuple[int, str]] = []
+        for food in self.data_matcher.foods_by_id.values():
+            if not food.name:
+                continue
+
+            terms = [food.name, food.plural_name, *(alias.name for alias in food.aliases or [])]
+            match_lengths = [
+                len(phrase)
+                for term in terms
+                if term and (phrase := " ".join(self._tokens(term))) and f" {phrase} " in input_text
+            ]
+            if match_lengths:
+                candidates.append((max(match_lengths), self._reference_line(food.name, [food.plural_name, *terms[2:]])))
+
+        # the most specific matches first, e.g. "pomme de terre" before "pomme"
+        candidates.sort(key=lambda candidate: -candidate[0])
+        return [line for _, line in candidates[: self.MAX_FOOD_REFERENCES]]
+
+    def _get_prompt(self, service: OpenAIService, ingredients: list[str] | None = None) -> str:
+        data_injections: list[OpenAIDataInjection] = []
+        if units := self._unit_references():
+            data_injections.append(
                 OpenAIDataInjection(
                     description=(
-                        "Below is a list of units found in the units database. While parsing, you should "
-                        "reference this list when determining which part of the input is the unit. You may "
-                        "find a unit in the input that does not exist in this list. This should not prevent "
-                        "you from parsing that text as a unit."
+                        "Below are the units of the units database, one per line, as `name: aliases`, where the "
+                        "aliases are the plural, abbreviations and other names of the unit. Use the names and "
+                        "aliases to determine which part of the input is the unit. When it matches a name or an "
+                        "alias, return the unit name exactly as written before the colon. You may find a unit in "
+                        "the input that does not exist in this list. This should not prevent you from parsing "
+                        "that text as a unit."
                     ),
-                    value=list(set(self.data_matcher.units_by_alias)),
-                ),
-            ]
+                    value="\n".join(units),
+                )
+            )
 
-        else:
-            data_injections = None
+        if ingredients and (foods := self._food_references(ingredients)):
+            data_injections.append(
+                OpenAIDataInjection(
+                    description=(
+                        "Below are the foods of the foods database that may appear in the input, one per line, "
+                        "as `name: aliases`, where the aliases are the plural and other names of the food. Use "
+                        "the names and aliases to determine which part of the input is the food. When it matches "
+                        "a name or an alias, return the food name exactly as written before the colon, choosing "
+                        "the entry that matches the most words of the input. You may find a food in the input "
+                        "that does not exist in this list. This should not prevent you from parsing that text "
+                        "as a food."
+                    ),
+                    value="\n".join(foods),
+                )
+            )
 
-        return service.get_prompt("recipes.parse-recipe-ingredients", data_injections=data_injections)
+        return service.get_prompt("recipes.parse-recipe-ingredients", data_injections=data_injections or None)
 
     async def _parse(self, ingredients: list[str]) -> OpenAIIngredients:
         service = OpenAIService(self.repos)
-        prompt = self._get_prompt(service)
+        prompt = self._get_prompt(service, ingredients)
 
         response = await service.get_response(
             prompt, json.dumps(ingredients, separators=(",", ":")), response_schema=OpenAIIngredients

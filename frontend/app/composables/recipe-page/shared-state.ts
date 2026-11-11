@@ -48,12 +48,17 @@ interface PageState {
    * true if the recipe is currently being parsed.
    */
   isParsing: ComputedRef<boolean>;
+  /**
+   * true if the steps are shown in their Thermomix version, in view and cook mode alike.
+   */
+  isThermomixView: ComputedRef<boolean>;
 
   setMode: (v: PageMode) => void;
   setEditMode: (v: EditorMode) => void;
   toggleEditMode: () => void;
   toggleCookMode: () => void;
   toggleIsParsing: (v?: boolean) => void;
+  toggleThermomixView: () => void;
 }
 
 type PageRefs = ReturnType<typeof pageRefs>;
@@ -66,11 +71,12 @@ function pageRefs(slug: string) {
     pageModeRef: ref(PageMode.VIEW),
     editModeRef: ref(EditorMode.FORM),
     isParsingRef: ref(false),
+    isThermomixViewRef: ref(false),
     imageKey: ref(1),
   };
 }
 
-function pageState({ slugRef, pageModeRef, editModeRef, isParsingRef, imageKey }: PageRefs): PageState {
+function pageState({ slugRef, pageModeRef, editModeRef, isParsingRef, isThermomixViewRef, imageKey }: PageRefs): PageState {
   const { activateNavigationWarning, deactivateNavigationWarning } = useNavigationWarning();
 
   const toggleEditMode = () => {
@@ -95,6 +101,10 @@ function pageState({ slugRef, pageModeRef, editModeRef, isParsingRef, imageKey }
     }
 
     isParsingRef.value = v;
+  };
+
+  const toggleThermomixView = () => {
+    isThermomixViewRef.value = !isThermomixViewRef.value;
   };
 
   const setEditMode = (v: EditorMode) => {
@@ -128,6 +138,7 @@ function pageState({ slugRef, pageModeRef, editModeRef, isParsingRef, imageKey }
     setEditMode,
     toggleCookMode,
     toggleIsParsing,
+    toggleThermomixView,
 
     isEditForm: computed(() => {
       return pageModeRef.value === PageMode.EDIT && editModeRef.value === EditorMode.FORM;
@@ -143,6 +154,9 @@ function pageState({ slugRef, pageModeRef, editModeRef, isParsingRef, imageKey }
     }),
     isParsing: computed(() => {
       return isParsingRef.value;
+    }),
+    isThermomixView: computed(() => {
+      return isThermomixViewRef.value;
     }),
   };
 }

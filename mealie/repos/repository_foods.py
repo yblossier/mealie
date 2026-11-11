@@ -59,7 +59,11 @@ class RepositoryFood(GroupRepositoryGeneric[IngredientFoodOut, IngredientFoodMod
         to_food = to_model.id
 
         # both sides are read up front, so the sets aren't invalidated as rows are moved
-        existing_substitute_ids = {row.substitute_food_id for row in to_model.substitutions if row.substitute_food_id}
+        existing_combinations = {
+            frozenset([row.substitute_food_id, *row.additional_food_ids])
+            for row in to_model.substitutions
+            if row.substitute_food_id
+        }
         existing_source_ids = {row.food_id for row in to_model.substitution_references}
         outbound = list(from_model.substitutions)
         inbound = list(from_model.substitution_references)
@@ -67,11 +71,12 @@ class RepositoryFood(GroupRepositoryGeneric[IngredientFoodOut, IngredientFoodMod
         for row in outbound:
             if row.substitute_food_id is not None:
                 # `from -> to` becomes a self-substitution once the foods are one, and
-                # `from -> S` duplicates an existing `to -> S`
-                if row.substitute_food_id == to_food or row.substitute_food_id in existing_substitute_ids:
+                # `from -> S (+ T)` duplicates an existing `to -> S (+ T)`
+                combination = frozenset([row.substitute_food_id, *row.additional_food_ids])
+                if row.substitute_food_id == to_food or combination in existing_combinations:
                     continue
 
-                existing_substitute_ids.add(row.substitute_food_id)
+                existing_combinations.add(combination)
 
             # note-only substitutions carry no food reference and always survive the merge
             to_model.substitutions.append(row)

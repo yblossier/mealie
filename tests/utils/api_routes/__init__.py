@@ -61,10 +61,22 @@ comments = "/api/comments"
 """`/api/comments`"""
 foods = "/api/foods"
 """`/api/foods`"""
+foods_allergens_fill = "/api/foods/allergens/fill"
+"""`/api/foods/allergens/fill`"""
+foods_allergens_suggest = "/api/foods/allergens/suggest"
+"""`/api/foods/allergens/suggest`"""
 foods_empty = "/api/foods/empty"
 """`/api/foods/empty`"""
 foods_merge = "/api/foods/merge"
 """`/api/foods/merge`"""
+foods_nutrition_estimate = "/api/foods/nutrition/estimate"
+"""`/api/foods/nutrition/estimate`"""
+foods_nutrition_fill = "/api/foods/nutrition/fill"
+"""`/api/foods/nutrition/fill`"""
+foods_nutrition_references = "/api/foods/nutrition/references"
+"""`/api/foods/nutrition/references`"""
+foods_nutrition_references_open_food_facts = "/api/foods/nutrition/references/open-food-facts"
+"""`/api/foods/nutrition/references/open-food-facts`"""
 groups_ai_providers_prompts = "/api/groups/ai-providers/prompts"
 """`/api/groups/ai-providers/prompts`"""
 groups_ai_providers_providers = "/api/groups/ai-providers/providers"
@@ -73,6 +85,14 @@ groups_ai_providers_providers_test = "/api/groups/ai-providers/providers/test"
 """`/api/groups/ai-providers/providers/test`"""
 groups_ai_providers_settings = "/api/groups/ai-providers/settings"
 """`/api/groups/ai-providers/settings`"""
+groups_allergens = "/api/groups/allergens"
+"""`/api/groups/allergens`"""
+groups_food_composition = "/api/groups/food-composition"
+"""`/api/groups/food-composition`"""
+groups_food_composition_ciqual = "/api/groups/food-composition/ciqual"
+"""`/api/groups/food-composition/ciqual`"""
+groups_food_composition_ciqual_refresh = "/api/groups/food-composition/ciqual/refresh"
+"""`/api/groups/food-composition/ciqual/refresh`"""
 groups_households = "/api/groups/households"
 """`/api/groups/households`"""
 groups_labels = "/api/groups/labels"
@@ -89,6 +109,8 @@ groups_preferences = "/api/groups/preferences"
 """`/api/groups/preferences`"""
 groups_reports = "/api/groups/reports"
 """`/api/groups/reports`"""
+groups_seeders_allergens = "/api/groups/seeders/allergens"
+"""`/api/groups/seeders/allergens`"""
 groups_seeders_foods = "/api/groups/seeders/foods"
 """`/api/groups/seeders/foods`"""
 groups_seeders_units = "/api/groups/seeders/units"
@@ -360,6 +382,11 @@ def foods_item_id(item_id):
     return f"{prefix}/foods/{item_id}"
 
 
+def foods_item_id_nutrition_logs(item_id):
+    """`/api/foods/{item_id}/nutrition/logs`"""
+    return f"{prefix}/foods/{item_id}/nutrition/logs"
+
+
 def groups_ai_providers_prompts_prompt_name(prompt_name):
     """`/api/groups/ai-providers/prompts/{prompt_name}`"""
     return f"{prefix}/groups/ai-providers/prompts/{prompt_name}"
@@ -373,6 +400,11 @@ def groups_ai_providers_providers_provider_id(provider_id):
 def groups_ai_providers_providers_provider_id_test(provider_id):
     """`/api/groups/ai-providers/providers/{provider_id}/test`"""
     return f"{prefix}/groups/ai-providers/providers/{provider_id}/test"
+
+
+def groups_allergens_item_id(item_id):
+    """`/api/groups/allergens/{item_id}`"""
+    return f"{prefix}/groups/allergens/{item_id}"
 
 
 def groups_households_household_slug(household_slug):
@@ -500,6 +532,11 @@ def media_recipes_recipe_id_images_timeline_timeline_event_id_file_name(recipe_i
     return f"{prefix}/media/recipes/{recipe_id}/images/timeline/{timeline_event_id}/{file_name}"
 
 
+def media_tools_tool_id_file_name(tool_id, file_name):
+    """`/api/media/tools/{tool_id}/{file_name}`"""
+    return f"{prefix}/media/tools/{tool_id}/{file_name}"
+
+
 def media_users_user_id_file_name(user_id, file_name):
     """`/api/media/users/{user_id}/{file_name}`"""
     return f"{prefix}/media/users/{user_id}/{file_name}"
@@ -530,6 +567,11 @@ def organizers_tools_item_id(item_id):
     return f"{prefix}/organizers/tools/{item_id}"
 
 
+def organizers_tools_item_id_image(item_id):
+    """`/api/organizers/tools/{item_id}/image`"""
+    return f"{prefix}/organizers/tools/{item_id}/image"
+
+
 def organizers_tools_slug_tool_slug(tool_slug):
     """`/api/organizers/tools/slug/{tool_slug}`"""
     return f"{prefix}/organizers/tools/slug/{tool_slug}"
@@ -553,6 +595,11 @@ def recipes_shared_token_id_zip(token_id):
 def recipes_slug(slug):
     """`/api/recipes/{slug}`"""
     return f"{prefix}/recipes/{slug}"
+
+
+def recipes_slug_allergens(slug):
+    """`/api/recipes/{slug}/allergens`"""
+    return f"{prefix}/recipes/{slug}/allergens"
 
 
 def recipes_slug_assets(slug):
@@ -593,6 +640,16 @@ def recipes_slug_image(slug):
 def recipes_slug_last_made(slug):
     """`/api/recipes/{slug}/last-made`"""
     return f"{prefix}/recipes/{slug}/last-made"
+
+
+def recipes_slug_thermomix(slug):
+    """`/api/recipes/{slug}/thermomix`"""
+    return f"{prefix}/recipes/{slug}/thermomix"
+
+
+def recipes_slug_thermomix_logs(slug):
+    """`/api/recipes/{slug}/thermomix/logs`"""
+    return f"{prefix}/recipes/{slug}/thermomix/logs"
 
 
 def recipes_timeline_events_item_id(item_id):

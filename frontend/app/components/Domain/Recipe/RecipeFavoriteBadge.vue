@@ -2,26 +2,34 @@
   <v-tooltip
     location="bottom"
     nudge-right="50"
-    :color="buttonStyle ? 'info' : 'secondary'"
+    color="secondary"
   >
     <template #activator="{ props: tooltipProps }">
+      <!-- Only the heart: white inside until the recipe is a favorite, then red -->
       <v-btn
         v-if="isFavorite || showAlways"
         icon
-        :variant="buttonStyle ? 'flat' : undefined"
-        :rounded="buttonStyle ? 'circle' : undefined"
-        size="small"
-        :color="buttonStyle ? 'info' : 'secondary'"
-        :fab="buttonStyle"
+        variant="text"
+        :size="buttonStyle ? 40 : 'small'"
+        :aria-pressed="isFavorite"
+        :aria-label="isFavorite ? $t('recipe.remove-from-favorites') : $t('recipe.add-to-favorites')"
+        data-testid="favorite-button"
         v-bind="{ ...tooltipProps, ...$attrs }"
+        :color="isFavorite ? 'error' : undefined"
         @click.prevent="toggleFavorite"
       >
-        <v-icon
-          :size="!buttonStyle ? undefined : 'x-large'"
-          :color="buttonStyle ? 'white' : 'secondary'"
-        >
-          {{ isFavorite ? $globals.icons.heart : $globals.icons.heartOutline }}
-        </v-icon>
+        <span class="favorite-heart" :style="{ fontSize: `${iconSize}px` }">
+          <v-icon :size="iconSize" :color="isFavorite ? 'error' : 'white'" data-testid="favorite-fill">
+            {{ $globals.icons.heart }}
+          </v-icon>
+          <v-icon
+            class="favorite-heart__outline"
+            :size="iconSize"
+            :color="isFavorite ? 'error' : (buttonStyle ? 'info' : undefined)"
+          >
+            {{ $globals.icons.heartOutline }}
+          </v-icon>
+        </span>
       </v-btn>
     </template>
     <span>{{ isFavorite ? $t("recipe.remove-from-favorites") : $t("recipe.add-to-favorites") }}</span>
@@ -50,6 +58,9 @@ const isFavorite = computed(() => {
   return rating?.isFavorite || false;
 });
 
+// as big as the round action buttons next to it on the recipe page
+const iconSize = computed(() => (props.buttonStyle ? 40 : 24));
+
 async function toggleFavorite() {
   const api = useUserApi();
   const auth = useMealieAuth();
@@ -64,3 +75,15 @@ async function toggleFavorite() {
   await refreshUserRatings();
 }
 </script>
+
+<style scoped>
+.favorite-heart {
+  position: relative;
+  display: inline-flex;
+}
+
+.favorite-heart__outline {
+  position: absolute;
+  inset: 0;
+}
+</style>

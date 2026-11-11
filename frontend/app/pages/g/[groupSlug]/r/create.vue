@@ -77,7 +77,7 @@ const subpages = computed<MenuItem[]>(() => [
     value: "html",
   },
   {
-    icon: $globals.icons.autoFix,
+    icon: $globals.icons.robot,
     text: i18n.t("recipe.import-with-ai"),
     value: "ai",
     hide: !group.value?.aiProviderSettings?.aiEnabled,

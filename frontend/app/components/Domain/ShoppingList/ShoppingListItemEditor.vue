@@ -30,6 +30,7 @@
             icon: $globals.icons.close,
             text: $t('general.cancel'),
             event: 'cancel',
+            color: 'error',
           },
           {
             icon: $globals.icons.save,

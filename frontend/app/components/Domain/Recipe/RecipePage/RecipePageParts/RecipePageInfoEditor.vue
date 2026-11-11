@@ -54,11 +54,25 @@
       v-model:seconds="recipe.prepTimeSeconds"
       v-model:text="recipe.prepTime"
       :label="$t('recipe.prep-time')"
+      :icon="$globals.icons.knife"
     />
     <RecipeTimeInput
       v-model:seconds="recipe.performTimeSeconds"
       v-model:text="recipe.performTime"
       :label="$t('recipe.perform-time')"
+      :icon="$globals.icons.stove"
+    />
+    <RecipeTimeInput
+      v-model:seconds="recipe.coolingTimeSeconds"
+      v-model:text="recipe.coolingTime"
+      :label="$t('recipe.step-cooling-label')"
+      :icon="$globals.icons.snowflake"
+    />
+    <RecipeTimeInput
+      v-model:seconds="recipe.restTimeSeconds"
+      v-model:text="recipe.restTime"
+      :label="$t('recipe.step-rest-label')"
+      :icon="$globals.icons.timerSand"
     />
     <v-textarea
       v-model="recipe.description"

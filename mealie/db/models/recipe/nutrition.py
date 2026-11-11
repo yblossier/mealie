@@ -32,6 +32,13 @@ class Nutrition(SqlAlchemyBase):
     sugar_content: FilterableColumn[str | None] = mapped_column(sa.String)
     trans_fat_content: FilterableColumn[str | None] = mapped_column(sa.String)
     unsaturated_fat_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    calcium_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    iron_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    magnesium_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    potassium_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    vitamin_a_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    vitamin_c_content: FilterableColumn[str | None] = mapped_column(sa.String)
+    vitamin_d_content: FilterableColumn[str | None] = mapped_column(sa.String)
 
     def __init__(
         self,
@@ -46,6 +53,13 @@ class Nutrition(SqlAlchemyBase):
         sugar_content=None,
         trans_fat_content=None,
         unsaturated_fat_content=None,
+        calcium_content=None,
+        iron_content=None,
+        magnesium_content=None,
+        potassium_content=None,
+        vitamin_a_content=None,
+        vitamin_c_content=None,
+        vitamin_d_content=None,
     ) -> None:
         self.calories = calories
         self.carbohydrate_content = carbohydrate_content
@@ -58,3 +72,10 @@ class Nutrition(SqlAlchemyBase):
         self.sugar_content = sugar_content
         self.trans_fat_content = trans_fat_content
         self.unsaturated_fat_content = unsaturated_fat_content
+        self.calcium_content = calcium_content
+        self.iron_content = iron_content
+        self.magnesium_content = magnesium_content
+        self.potassium_content = potassium_content
+        self.vitamin_a_content = vitamin_a_content
+        self.vitamin_c_content = vitamin_c_content
+        self.vitamin_d_content = vitamin_d_content

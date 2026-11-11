@@ -12,9 +12,11 @@ class RecipeSettings(SqlAlchemyBase):
     public: FilterableColumn[bool | None] = mapped_column(sa.Boolean)
     show_nutrition: FilterableColumn[bool | None] = mapped_column(sa.Boolean)
     show_assets: FilterableColumn[bool | None] = mapped_column(sa.Boolean)
+    show_allergens: FilterableColumn[bool | None] = mapped_column(sa.Boolean, default=True)
     landscape_view: FilterableColumn[bool | None] = mapped_column(sa.Boolean)
     disable_comments: FilterableColumn[bool | None] = mapped_column(sa.Boolean, default=False)
     locked: FilterableColumn[bool | None] = mapped_column(sa.Boolean, default=False)
+    thermomix: FilterableColumn[bool | None] = mapped_column(sa.Boolean, default=False)
 
     # Deprecated
     disable_amount: Mapped[bool | None] = mapped_column(sa.Boolean, default=True)
@@ -24,15 +26,19 @@ class RecipeSettings(SqlAlchemyBase):
         public=True,
         show_nutrition=True,
         show_assets=True,
+        show_allergens=True,
         landscape_view=True,
         disable_amount=True,
         disable_comments=False,
         locked=False,
+        thermomix=False,
     ) -> None:
         self.locked = locked
+        self.thermomix = thermomix
         self.public = public
         self.show_nutrition = show_nutrition
         self.show_assets = show_assets
+        self.show_allergens = show_allergens
         self.landscape_view = landscape_view
         self.disable_amount = disable_amount
         self.disable_comments = disable_comments

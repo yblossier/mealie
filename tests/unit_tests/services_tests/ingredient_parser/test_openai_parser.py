@@ -426,3 +426,29 @@ def test_openai_parser_confidence(
         assert abs(confidence.average - expected_avg) < 0.001, (
             f"Average confidence mismatch: expected {expected_avg}, got {confidence.average}"
         )
+
+
+def test_openai_parser_prompt_references_names_and_aliases(
+    unique_local_group_id: UUID4,
+    parsed_ingredient_data: tuple[list[IngredientFoodOut], list[IngredientUnitOut]],
+    monkeypatch: pytest.MonkeyPatch,
+):
+    def mock_openai_init(self, repos):
+        self.repos = repos
+
+    monkeypatch.setattr(OpenAIService, "__init__", mock_openai_init)
+    monkeypatch.setattr(OpenAIService, "_apply_prompt_overrides", lambda self, name, content: content)
+
+    with session_context() as session:
+        parser = get_parser(RegisteredParser.openai, unique_local_group_id, session, get_locale_provider())
+        service = OpenAIService(parser.repos)
+        prompt = parser._get_prompt(service, ["2 doremi123 thisismyalias", "3 green onions, chopped"])  # type: ignore[attr-defined]
+
+    # every unit is listed with its plural, abbreviations and aliases
+    assert "PluralUnitName: abc123, doremiabc, doremi123" in prompt
+    assert "IHaveAnAliasToo: thisismyalias" in prompt
+    assert "Cups" in prompt
+
+    # only the foods found in the input, through their name, plural or alias, the most specific first
+    foods = prompt.split("Below are the foods")[1].split("---", 1)[1].strip().splitlines()
+    assert foods == ["IHaveAnAlias: thisismyalias", "green onion", "onion"]

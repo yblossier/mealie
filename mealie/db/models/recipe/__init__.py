@@ -1,3 +1,4 @@
+from .allergen import *
 from .api_extras import *
 from .assets import *
 from .category import *

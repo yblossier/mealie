@@ -46,6 +46,7 @@ const buttonLookup: { [key: string]: string } = {
   foods: i18n.t("general.foods"),
   units: i18n.t("general.units"),
   labels: i18n.t("data-pages.labels.labels"),
+  allergens: i18n.t("data-pages.allergens.allergens"),
   categories: i18n.t("category.categories"),
   tags: i18n.t("tag.tags"),
   tools: i18n.t("tool.tools"),
@@ -79,6 +80,11 @@ const DATA_TYPE_OPTIONS = computed(() => [
     text: i18n.t("data-pages.labels.labels"),
     value: "new",
     to: "/group/data/labels",
+  },
+  {
+    text: i18n.t("data-pages.allergens.allergens"),
+    value: "new",
+    to: "/group/data/allergens",
     divider: true,
   },
   {

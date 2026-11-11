@@ -7,6 +7,9 @@ import { useLocales } from "~/composables/use-locales";
 
 vi.mock("~/composables/use-locales");
 
+vi.stubGlobal("useMealieAuth", () => ({ user: { value: { householdSlug: "home" } } }));
+vi.mock("~/composables/use-logged-in-state", () => ({ useLoggedInState: () => ({ isOwnGroup: { value: true } }) }));
+
 const ingredients = {
   curryPaste: {
     referenceId: "ingredient-curry-paste",
@@ -27,8 +30,12 @@ function mountIngredients(value: RecipeIngredient[], storageKey = "recipe-ingred
       storageKey,
     },
     global: {
+      mocks: {
+        $globals: { icons: { informationOutline: "info-icon" } },
+      },
       stubs: {
         AppButtonCopy: true,
+        RecipeIngredientAddToListMenu: true,
         RecipeIngredientListItem: true,
         VCheckbox: {
           props: ["modelValue"],
@@ -44,7 +51,13 @@ function mountIngredients(value: RecipeIngredient[], storageKey = "recipe-ingred
         },
         VDivider: true,
         VListItem: {
-          template: "<div class=\"list-item\" @click=\"$emit('click', $event)\"><slot name=\"prepend\" /><slot /></div>",
+          template: "<div class=\"list-item\" @click=\"$emit('click', $event)\"><slot name=\"prepend\" /><slot /><slot name=\"append\" /></div>",
+        },
+        VTooltip: {
+          template: "<div class=\"tooltip\"><slot name=\"activator\" :props=\"{}\" /><span class=\"tooltip-text\"><slot /></span></div>",
+        },
+        VIcon: {
+          template: "<i v-bind=\"$attrs\"><slot /></i>",
         },
         VListItemTitle: {
           template: "<div><slot /></div>",
@@ -75,5 +88,24 @@ describe("RecipeIngredients", () => {
 
     expect(secondWrapper.findAll(".checkbox")[0].attributes("aria-pressed")).toBe("false");
     expect(secondWrapper.findAll(".checkbox")[1].attributes("aria-pressed")).toBe("true");
+  });
+
+  test("shows the allergens of a food linked to allergens in an info bubble", () => {
+    const wrapper = mountIngredients([
+      {
+        ...ingredients.curryPaste,
+        food: { ...ingredients.curryPaste.food, allergens: [{ id: "a1", name: "Mustard" }, { id: "a2", name: "Celery" }] },
+      } as RecipeIngredient,
+      ingredients.coconutMilk,
+    ]);
+
+    expect(wrapper.findAll("[data-testid='ingredient-allergen-info']")).toHaveLength(1);
+    expect(wrapper.find(".tooltip-text").text()).toBe("Allergens: Mustard, Celery");
+  });
+
+  test("shows no info bubble when no food is linked to an allergen", () => {
+    const wrapper = mountIngredients([ingredients.curryPaste, ingredients.coconutMilk]);
+
+    expect(wrapper.find("[data-testid='ingredient-allergen-info']").exists()).toBe(false);
   });
 });

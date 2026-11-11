@@ -61,6 +61,7 @@
     </BaseDialog>
 
     <GroupDataPage
+      :items-per-page="tablePageSize"
       :icon="$globals.icons.tools"
       :title="$t('data-pages.tools.tool-data')"
       :create-title="$t('data-pages.tools.new-tool')"
@@ -68,21 +69,79 @@
       :table-headers="tableHeaders"
       :table-config="tableConfig"
       :data="tools || []"
-      :bulk-actions="[{ icon: $globals.icons.delete, text: $t('general.delete'), event: 'delete-selected' }]"
+      :bulk-actions="bulkActions"
+      :row-actions="rowActions"
       :create-form="createForm"
       :edit-form="editForm"
       @create-one="handleCreate"
       @edit-one="handleEdit"
       @delete-one="toolStore.actions.deleteOne"
       @bulk-action="handleBulkAction"
+      @row-action="handleRowAction"
     >
+      <template #create-dialog-bottom>
+        <RecipeToolDetailsFields v-model="createForm.data" :tools="tools" />
+        <div class="text-subtitle-2 mb-2">
+          {{ $t("tool.photo") }}
+        </div>
+        <RecipeToolPhotoEditor
+          v-model:file="createPhoto"
+          :tool="{ name: createForm.data.name, image: null }"
+          class="mb-4"
+        />
+      </template>
+
+      <template #edit-dialog-bottom>
+        <RecipeToolDetailsFields v-model="editForm.data" :tools="tools" :tool-id="editForm.data.id" />
+        <div class="text-subtitle-2 mb-2">
+          {{ $t("tool.photo") }}
+        </div>
+        <RecipeToolPhotoEditor
+          v-if="editForm.data.id"
+          :tool="editForm.data"
+          class="mb-4"
+          @updated="handlePhotoUpdated"
+        />
+      </template>
+
+      <template #[`item.category`]="{ item }">
+        <span class="text-no-wrap">
+          <v-icon class="me-2">
+            {{ toolCategoryIcon(item.category) }}
+          </v-icon>
+          {{ $t(`tool.category-${item.category || "utensils"}`) }}
+        </span>
+      </template>
+
+      <template #[`item.details`]="{ item }">
+        <template v-if="item.category === 'dishes'">
+          <div v-if="dishSizeLabel(item)">
+            {{ dishSizeLabel(item) }}
+          </div>
+          <div v-if="item.usages?.length" class="text-caption text-medium-emphasis">
+            {{ item.usages.map(usage => $t(`tool.usage-${usage}`)).join(", ") }}
+          </div>
+        </template>
+        <span v-else-if="item.parentId && toolNames[item.parentId]">
+          {{ $t("tool.accessory-of") }} {{ toolNames[item.parentId] }}
+        </span>
+      </template>
+
+      <template #[`item.image`]="{ item }">
+        <v-avatar v-if="toolImageUrl(item)" size="32" rounded>
+          <v-img :src="toolImageUrl(item)!" :alt="item.name" cover />
+        </v-avatar>
+      </template>
+
       <template #[`item.recipeCount`]="{ item }">
-        <NuxtLink v-if="groupSlug && item.recipeCount > 0" :to="`/g/${groupSlug}?tools=${item.id}`">{{ item.recipeCount }}</NuxtLink>
-        <span v-else>{{ item.recipeCount || 0 }}</span>
+        <GroupDataRecipeCount
+          :count="item.recipeCount || 0"
+          :to="groupSlug ? `/g/${groupSlug}?tools=${item.id}` : null"
+        />
       </template>
 
       <template #[`item.onHand`]="{ item }">
-        <v-icon :color="item.onHand ? 'success' : undefined">
+        <v-icon :color="item.onHand ? 'success' : 'error'">
           {{ item.onHand ? $globals.icons.check : $globals.icons.close }}
         </v-icon>
       </template>
@@ -114,11 +173,19 @@ import { validators } from "~/composables/use-validators";
 import { fieldTypes } from "~/composables/forms";
 import { normalizeFilter } from "~/composables/use-utils";
 import { alert } from "~/composables/use-toast";
+import { toolOnHandUpdates } from "~/lib/recipe/tool-on-hand";
 import type { AutoFormItems } from "~/types/auto-forms";
+import { amazonSearchUrl, DEFAULT_TOOL_CATEGORY, dishSizeLabel, toolCategoryIcon, toolFormPayload, toolImageUrl } from "~/lib/recipe/tool-display";
+import RecipeToolDetailsFields from "~/components/Domain/Recipe/RecipeToolDetailsFields.vue";
+import RecipeToolPhotoEditor from "~/components/Domain/Recipe/RecipeToolPhotoEditor.vue";
+import GroupDataRecipeCount from "~/components/Domain/Group/GroupDataRecipeCount.vue";
 import { useToolStore } from "~/composables/store";
 import { useUserApi } from "~/composables/api";
 import type { ToolOut, ToolCreate } from "~/lib/api/types/recipe";
-import type { TableHeaders, TableConfig } from "~/components/global/CrudTable.vue";
+import type { TableHeaders, TableConfig, BulkAction } from "~/components/global/CrudTable.vue";
+import { useTablePageSize } from "~/composables/use-table-page-size";
+
+const tablePageSize = useTablePageSize();
 
 const i18n = useI18n();
 const auth = useMealieAuth();
@@ -136,22 +203,40 @@ const tableHeaders: TableHeaders[] = [
     show: false,
   },
   {
+    text: i18n.t("tool.category"),
+    value: "category",
+    show: true,
+    sortable: true,
+  },
+  {
+    text: i18n.t("tool.photo"),
+    value: "image",
+    show: true,
+  },
+  {
     text: i18n.t("general.name"),
     value: "name",
     show: true,
     sortable: true,
   },
   {
-    text: i18n.t("data-pages.recipe-count"),
-    value: "recipeCount",
+    text: i18n.t("tool.details"),
+    value: "details",
     show: true,
-    sortable: true,
   },
   {
     text: i18n.t("tool.on-hand"),
     value: "onHand",
     show: true,
     sortable: true,
+    align: "center",
+  },
+  {
+    text: i18n.t("general.recipes"),
+    value: "recipeCount",
+    show: true,
+    sortable: true,
+    align: "center",
   },
 ];
 
@@ -161,6 +246,8 @@ const tools = computed(() => toolStore.store.value.map((tool) => {
   const onHand = tool.householdsWithTool?.includes(userHousehold.value) || false;
   return { ...tool, onHand } as RecipeToolWithOnHand;
 }));
+
+const toolNames = computed<Record<string, string>>(() => Object.fromEntries(tools.value.map(tool => [tool.id, tool.name])));
 
 onMounted(() => {
   toolStore.actions.refresh();
@@ -186,13 +273,29 @@ const formItems = [
 // Create
 const createForm = reactive({
   items: formItems,
-  data: { name: "", onHand: false } as ToolCreate,
+  data: emptyCreateData(),
 });
 
+function emptyCreateData() {
+  return { name: "", onHand: false, category: DEFAULT_TOOL_CATEGORY, usages: [] } as ToolCreate;
+}
+
+const createPhoto = ref<File | null>(null);
+
 async function handleCreate(createFormData: ToolCreate) {
+  const photo = createPhoto.value;
   // @ts-expect-error createOne eroniusly expects id and slug which are not preset at time of creation
-  await toolStore.actions.createOne({ name: createFormData.name, householdsWithTool: createFormData.onHand ? [userHousehold.value] : [] } as ToolCreate);
-  createForm.data = { name: "", onHand: false } as ToolCreate;
+  const created = await toolStore.actions.createOne({ ...toolFormPayload(createFormData), householdsWithTool: createFormData.onHand ? [userHousehold.value] : [] } as ToolCreate);
+  createForm.data = emptyCreateData();
+  createPhoto.value = null;
+
+  // the photo needs the id of the tool, so it is uploaded once the tool exists
+  if (created?.id && photo) {
+    const { data } = await userApi.tools.updateImage(created.id, photo);
+    if (data) {
+      await toolStore.actions.refresh();
+    }
+  }
 }
 
 // ============================================================
@@ -216,16 +319,63 @@ async function handleEdit(editFormData: RecipeToolWithOnHand) {
     if (idx !== -1) editFormData.householdsWithTool.splice(idx, 1);
   }
 
-  await toolStore.actions.updateOne({ ...editFormData, id: editFormData.id } as ToolOut);
+  await toolStore.actions.updateOne({ ...editFormData, ...toolFormPayload(editFormData), id: editFormData.id } as ToolOut);
   editForm.data = {} as RecipeToolWithOnHand;
+}
+
+// the photo is saved as soon as it is picked, so the table shows it even if the edit is cancelled
+async function handlePhotoUpdated(tool: ToolOut) {
+  editForm.data = { ...editForm.data, image: tool.image };
+  await toolStore.actions.refresh();
+}
+
+// ============================================================
+// Row Actions
+const rowActions = computed<BulkAction[]>(() => [
+  { icon: $globals.icons.link, text: i18n.t("tool.search-on-amazon"), event: "amazon" },
+]);
+
+function handleRowAction(event: string, item: RecipeToolWithOnHand) {
+  if (event === "amazon") {
+    window.open(amazonSearchUrl(item.name), "_blank", "noopener,noreferrer");
+  }
 }
 
 // ============================================================
 // Bulk Actions
+const { $globals } = useNuxtApp();
+const bulkActions: BulkAction[] = [
+  { icon: $globals.icons.delete, text: i18n.t("general.delete"), event: "delete-selected" },
+  { icon: $globals.icons.check, text: i18n.t("data-pages.tools.mark-on-hand"), event: "on-hand-selected" },
+  { icon: $globals.icons.close, text: i18n.t("data-pages.tools.mark-off-hand"), event: "off-hand-selected" },
+];
+
+async function setOnHand(items: RecipeToolWithOnHand[], onHand: boolean) {
+  const updates = toolOnHandUpdates(items, userHousehold.value, onHand);
+  if (!updates.length) {
+    return;
+  }
+
+  // sent one by one with the API directly, so the store is only refreshed once at the end
+  const results = await Promise.all(updates.map(({ id, payload }) => userApi.tools.updateOne(id, payload)));
+
+  await toolStore.actions.refresh();
+  const updated = results.filter(result => result.data).length;
+  if (updated) {
+    alert.success(i18n.t("data-pages.tools.on-hand-updated", { count: updated }, updated));
+  }
+}
+
 async function handleBulkAction(event: string, items: RecipeToolWithOnHand[]) {
   if (event === "delete-selected") {
     const ids = items.map(item => item.id);
     await toolStore.actions.deleteMany(ids);
+  }
+  else if (event === "on-hand-selected") {
+    await setOnHand(items, true);
+  }
+  else if (event === "off-hand-selected") {
+    await setOnHand(items, false);
   }
 }
 

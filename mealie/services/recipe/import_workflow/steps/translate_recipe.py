@@ -162,6 +162,10 @@ class TranslateRecipeStep(WorkflowStep):
         translated.total_time_seconds = recipe.total_time_seconds
         translated.prep_time_seconds = recipe.prep_time_seconds
         translated.perform_time_seconds = recipe.perform_time_seconds
+        translated.cooling_time_seconds = recipe.cooling_time_seconds
+        translated.rest_time_seconds = recipe.rest_time_seconds
+        translated.cooling_time = recipe.cooling_time
+        translated.rest_time = recipe.rest_time
 
         # cleaning again is what parses the translated times and yield back out of their new wording
         cleaned = cleaner.clean(translated, ctx.translator)

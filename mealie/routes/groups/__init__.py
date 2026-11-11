@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 
 from . import (
+    controller_allergens,
+    controller_food_composition,
     controller_group_ai_providers,
     controller_group_households,
     controller_group_reports,
@@ -20,4 +22,6 @@ router.include_router(controller_group_self_service.router)
 router.include_router(controller_migrations.router)
 router.include_router(controller_group_reports.router)
 router.include_router(controller_labels.router)
+router.include_router(controller_allergens.router)
+router.include_router(controller_food_composition.router)
 router.include_router(controller_seeder.router)

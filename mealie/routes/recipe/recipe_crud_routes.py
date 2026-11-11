@@ -37,6 +37,7 @@ from mealie.repos.all_repositories import get_repositories
 from mealie.routes._base import controller
 from mealie.routes._base.permissions import forbidden, not_found
 from mealie.routes._base.routers import MealieCrudRoute, UserAPIRouter
+from mealie.schema.allergens.allergen import RecipeAllergen
 from mealie.schema.cookbook.cookbook import CookBookOut
 from mealie.schema.make_dependable import make_dependable
 from mealie.schema.recipe import RecipeOut, ScrapeRecipe, ScrapeRecipeData
@@ -45,6 +46,7 @@ from mealie.schema.recipe.recipe_asset import RecipeAsset
 from mealie.schema.recipe.recipe_organizers import CategoryDraft, TagDraft
 from mealie.schema.recipe.recipe_scraper import ScrapeRecipeAI, ScrapeRecipeTest
 from mealie.schema.recipe.recipe_suggestion import RecipeSuggestionQuery, RecipeSuggestionResponse
+from mealie.schema.recipe.recipe_thermomix import RecipeThermomixView, ThermomixLogEntry
 from mealie.schema.recipe.request_helpers import (
     RecipeDuplicate,
     UpdateImageResponse,
@@ -70,11 +72,13 @@ from mealie.services.openai import OpenAINotEnabledException
 from mealie.services.recipe.ai_recipe_service import AIProviderNotEnabledError, AIRecipeService
 from mealie.services.recipe.import_workflow.exceptions import NoRecipeDataError
 from mealie.services.recipe.mealie_export import InvalidMealieExportError, parse_mealie_export
+from mealie.services.recipe.recipe_allergen_service import RecipeAllergenService
 from mealie.services.recipe.recipe_data_service import (
     InvalidDomainError,
     NotAnImageError,
     RecipeDataService,
 )
+from mealie.services.recipe.thermomix_service import ThermomixService
 from mealie.services.scraper.recipe_bulk_scraper import RecipeBulkScraperService
 from mealie.services.scraper.scraped_extras import ScrapedExtras, ScraperContext
 from mealie.services.scraper.scraper import create_from_html
@@ -106,6 +110,7 @@ ASSET_ALLOWED_EXTENSIONS = {
     "m4a",
     "mp3",
     # document
+    "doc",
     "docx",
     "md",
     "odt",
@@ -140,6 +145,14 @@ class RecipeController(BaseRecipeController):
         """Checked before any download or disk write, which the later update check cannot undo."""
         if not self.service.can_update([slug]):
             raise forbidden("Permission Denied")
+
+    def _get_group_recipe(self, slug: str) -> RecipeOut:
+        """Any household of the group can read a recipe, unlike `self.mixins.get_one` which only finds its own."""
+        try:
+            return self.service.get_one(slug)
+        except Exception as e:
+            self.handle_exceptions(e)
+            raise
 
     def handle_exceptions(self, ex: Exception) -> None:
         thrownType = type(ex)
@@ -841,6 +854,62 @@ class RecipeController(BaseRecipeController):
             )
 
         return recipe
+
+    # ==================================================================================================================
+    # Allergens
+
+    @router.get("/{slug}/allergens", response_model=list[RecipeAllergen], tags=["Recipe: Allergens"])
+    def get_allergens(self, slug: str) -> list[RecipeAllergen]:
+        """The allergens linked to the foods of the recipe's ingredients"""
+        recipe = self._get_group_recipe(slug)
+        return RecipeAllergenService(self.repos).detect(recipe)
+
+    # ==================================================================================================================
+    # Thermomix view
+
+    @router.get("/{slug}/thermomix", response_model=RecipeThermomixView | None, tags=["Recipe: Thermomix"])
+    def get_thermomix_view(self, slug: str) -> RecipeThermomixView | None:
+        """The recipe's steps adapted for the Thermomix, or nothing when they were never generated"""
+        recipe = self._get_group_recipe(slug)
+        return ThermomixService(self.repos).get(recipe)
+
+    @router.post("/{slug}/thermomix", response_model=RecipeThermomixView, tags=["Recipe: Thermomix"])
+    async def generate_thermomix_view(self, slug: str) -> RecipeThermomixView:
+        """Asks the AI provider to adapt the recipe's steps for the Thermomix, replacing the previous adaptation"""
+        recipe = self._get_group_recipe(slug)
+        self._require_can_update(recipe.slug)
+
+        try:
+            return await ThermomixService(self.repos).generate(recipe, user=self.user.full_name or self.user.username)
+        except OpenAINotEnabledException as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ErrorResponse.respond(message=self.t("recipe.import-errors.ai-not-enabled")),
+            ) from e
+        except exceptions.RateLimitError as e:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=ErrorResponse.respond(message=self.t("exceptions.rate-limit-error")),
+            ) from e
+        except Exception as e:
+            self.logger.exception(f"Unable to generate the Thermomix view of {recipe.slug}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=ErrorResponse.respond(message=self.t("recipe.import-errors.ai-request-failed")),
+            ) from e
+
+    @router.get("/{slug}/thermomix/logs", response_model=list[ThermomixLogEntry], tags=["Recipe: Thermomix"])
+    def get_thermomix_logs(self, slug: str) -> list[ThermomixLogEntry]:
+        """The latest attempts at generating the Thermomix view, newest first"""
+        recipe = self._get_group_recipe(slug)
+        return ThermomixService(self.repos).get_logs(recipe)
+
+    @router.delete("/{slug}/thermomix", response_model=SuccessResponse, tags=["Recipe: Thermomix"])
+    def delete_thermomix_view(self, slug: str):
+        recipe = self._get_group_recipe(slug)
+        self._require_can_update(recipe.slug)
+        ThermomixService(self.repos).delete(recipe)
+        return SuccessResponse.respond()
 
     # ==================================================================================================================
     # Image and Assets

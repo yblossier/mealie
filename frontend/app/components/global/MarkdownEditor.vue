@@ -25,6 +25,7 @@
       density="compact"
       rows="4"
       variant="underlined"
+      @keydown="onKeydown"
     />
     <SafeMarkdown
       v-else
@@ -34,6 +35,8 @@
 </template>
 
 <script setup lang="ts">
+import { applyMarkdownFormat, markdownShortcut } from "~/lib/markdown/markdown-shortcuts";
+
 const props = defineProps({
   label: {
     type: String,
@@ -58,6 +61,15 @@ const emit = defineEmits<{
 }>();
 
 const modelValue = defineModel<string>("modelValue");
+
+function onKeydown(event: KeyboardEvent) {
+  const format = markdownShortcut(event);
+  if (!format || !(event.target instanceof HTMLTextAreaElement)) {
+    return;
+  }
+  event.preventDefault();
+  applyMarkdownFormat(event.target, format);
+}
 
 const fallbackPreview = ref(false);
 const previewState = computed({

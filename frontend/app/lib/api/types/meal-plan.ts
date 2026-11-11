@@ -6,6 +6,9 @@
 */
 
 export type PlanEntryType = "breakfast" | "lunch" | "dinner" | "side" | "snack" | "drink" | "dessert";
+export type ToolCategory = "dishes" | "linen" | "appliance" | "utensils" | "tableware" | "cutlery";
+export type DishShape = "rectangular" | "round";
+export type DishUsage = "induction" | "gas" | "oven" | "microwave";
 export type PlanRulesDay = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday" | "unset";
 export type PlanRulesType = "breakfast" | "lunch" | "dinner" | "side" | "snack" | "drink" | "dessert" | "unset";
 export type LogicalOperator = "AND" | "OR";
@@ -54,9 +57,13 @@ export interface RecipeSummary {
   totalTime: string | null;
   prepTime: string | null;
   performTime: string | null;
+  coolingTime: string | null;
+  restTime: string | null;
   totalTimeSeconds: number | null;
   prepTimeSeconds: number | null;
   performTimeSeconds: number | null;
+  coolingTimeSeconds: number | null;
+  restTimeSeconds: number | null;
   description: string | null;
   recipeCategory: CategoryOut[];
   tags: TagOut[];
@@ -89,6 +96,15 @@ export interface ToolOut {
   slug: string;
   recipeCount: number;
   householdsWithTool: string[];
+  category: ToolCategory;
+  image: string | null;
+  dishShape: DishShape | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  diameter: number | null;
+  usages: DishUsage[];
+  parentId: string | null;
 }
 export interface PlanEntrySave {
   date: string;

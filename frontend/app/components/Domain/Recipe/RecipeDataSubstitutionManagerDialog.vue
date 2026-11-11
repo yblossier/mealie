@@ -17,6 +17,7 @@
         <RecipeIngredientSubstitutionEditor
           :substitutions="substitutions"
           :foods="foodOptions"
+          framed
           @add="createSubstitution"
           @delete="deleteSubstitution"
           @food-changed="resetReverse"
@@ -24,7 +25,7 @@
           <!-- spelled out rather than tooltipped: this has to read on a phone, where nothing hovers -->
           <template #after-row="{ index }">
             <v-checkbox
-              v-if="substitutions[index]?.substituteFoodId"
+              v-if="substitutions[index]?.substituteFoodId && !substitutions[index]?.additionalFoodIds.length"
               :model-value="reverseChecked(index)"
               :label="reverseLabel(index)"
               density="compact"
@@ -44,10 +45,12 @@ import { whenever } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import RecipeIngredientSubstitutionEditor from "~/components/Domain/Recipe/RecipeIngredientSubstitutionEditor.vue";
 import { useFoodStore } from "~/composables/store";
-import type { IngredientFoodOut, IngredientFoodSubstitution } from "~/lib/api/types/recipe";
+import type { IngredientFoodOut, IngredientFoodSubstitution, IngredientFoodSummary } from "~/lib/api/types/recipe";
 
 interface SubstitutionRow {
   substituteFoodId: string | null;
+  // a combination has a reverse that means nothing, so none is offered for it
+  additionalFoodIds: string[];
   note: string;
   // null means "whatever the other food currently says"; a boolean is an explicit choice
   addReverse: boolean | null;
@@ -113,6 +116,7 @@ function setReverse(index: number, addReverse: boolean | null) {
 function createSubstitution() {
   substitutions.value.push({
     substituteFoodId: null,
+    additionalFoodIds: [],
     note: "",
     addReverse: null,
   });
@@ -131,6 +135,7 @@ function resetReverse(index: number) {
 function initSubstitutions() {
   substitutions.value = (props.data.substitutions || []).map(substitution => ({
     substituteFoodId: substitution.substituteFoodId || null,
+    additionalFoodIds: [...(substitution.additionalFoodIds || [])],
     note: substitution.note || "",
     addReverse: null,
   }));
@@ -149,7 +154,9 @@ whenever(
 );
 
 function saveSubstitutions() {
-  const seenFoodIds: string[] = [];
+  // a substitution is identified by its whole set of foods, as on the server: "butter",
+  // "butter + flour" and "butter + oil" are three substitutions, "flour + butter" a repeat
+  const seenCombinations = new Set<string>();
   const keepRows: SubstitutionRow[] = [];
   const keepSubstitutions: IngredientFoodSubstitution[] = [];
   const reverseChanges: ReverseSubstitutionChanges = { add: [], remove: [] };
@@ -157,6 +164,9 @@ function saveSubstitutions() {
   substitutions.value.forEach((substitution) => {
     const substituteFoodId = substitution.substituteFoodId || null;
     const note = (substitution.note || "").trim() || null;
+    const additionalFoodIds = substituteFoodId
+      ? [...new Set(substitution.additionalFoodIds || [])].filter(id => id && id !== substituteFoodId && id !== props.data.id)
+      : [];
 
     // an empty row is a UI artifact rather than something to save, matching the alias dialog
     if (!substituteFoodId && !note) {
@@ -164,24 +174,37 @@ function saveSubstitutions() {
     }
 
     if (substituteFoodId) {
-      if (substituteFoodId === props.data.id || seenFoodIds.includes(substituteFoodId)) {
+      const combination = [substituteFoodId, ...additionalFoodIds].sort().join("+");
+      if (substituteFoodId === props.data.id || seenCombinations.has(combination)) {
         return;
       }
-      seenFoodIds.push(substituteFoodId);
+      seenCombinations.add(combination);
 
       // only a row whose reverse differs from what the other food already has needs a write
       const exists = reverseExists(substituteFoodId);
-      const wanted = substitution.addReverse ?? exists;
+      const wanted = additionalFoodIds.length ? exists : (substitution.addReverse ?? exists);
       if (wanted !== exists) {
         (wanted ? reverseChanges.add : reverseChanges.remove).push(substituteFoodId);
       }
     }
 
-    keepRows.push({ substituteFoodId, note: note || "", addReverse: substitution.addReverse });
-    keepSubstitutions.push({ substituteFoodId, note });
+    keepRows.push({ substituteFoodId, additionalFoodIds, note: note || "", addReverse: substitution.addReverse });
+    // the foods are expanded as the API returns them, so the edit form can name them before saving
+    keepSubstitutions.push({
+      substituteFoodId,
+      additionalFoodIds,
+      note,
+      substituteFood: foodSummary(substituteFoodId),
+      additionalFoods: additionalFoodIds.map(foodSummary).filter((food): food is IngredientFoodSummary => !!food),
+    });
   });
 
   substitutions.value = keepRows;
   emit("submit", keepSubstitutions, reverseChanges);
+}
+
+function foodSummary(foodId: string | null): IngredientFoodSummary | null {
+  const food = substituteFood(foodId);
+  return food ? { id: food.id, name: food.name, pluralName: food.pluralName ?? null } : null;
 }
 </script>

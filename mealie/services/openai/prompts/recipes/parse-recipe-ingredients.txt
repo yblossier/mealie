@@ -4,6 +4,7 @@ When parsing:
 - If uncertain about quantity, unit, or food, put the entire string in the note field
 - Respect grammar rules for multiple languages
 - Do not translate. Keep each unit, food, and note in the language in which that component appears in the input
+- When lists of units or foods from the database are given below, rely on their names and their aliases to find the best match for the unit and the food. A part of the input matches an entry when it equals its name or one of its aliases, allowing for plural, abbreviation, accents, case, and small typos. Then return the entry name exactly as listed, even when the input uses an alias. When several entries match, choose the one covering the most words of the input (e.g., "pommes de terre" is the food "pomme de terre", not "pomme"). Never force a match on an entry that names a different food or unit; keep the text from the input instead
 - Interpret singular/plural/grammatical variations
 - Text in parentheses = notes (e.g., "3 potatoes (roughly chopped)" → note: "roughly chopped"), unless it names an alternative food
 - Alternative foods the text explicitly offers go in substitutes, not the note (e.g., "1 cup chicken stock (or broth)" → food: "chicken stock", substitutes: ["broth"]). Only record alternatives stated in the text; never suggest your own

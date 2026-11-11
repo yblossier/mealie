@@ -43,18 +43,23 @@
       @start="drag = true"
       @end="drag = false"
     >
-      <RecipeIngredientEditor
+      <BaseSwipeAction
         v-for="(ingredient, index) in recipe.recipeIngredient"
         :key="ingredient.referenceId"
-        v-model="recipe.recipeIngredient[index]"
-        :is-recipe="ingredientIsRecipe(ingredient)"
-        :autofocus="ingredient.referenceId === autofocusIngredientId"
-        enable-drag-handle
-        enable-context-menu
-        @delete="recipe.recipeIngredient.splice(index, 1)"
-        @insert-above="insertNewIngredient(index)"
-        @insert-below="insertNewIngredient(index + 1)"
-      />
+        :left-action="{ icon: $globals.icons.delete, label: $t('general.delete'), color: 'error' }"
+        @swipe-left="recipe.recipeIngredient.splice(index, 1)"
+      >
+        <RecipeIngredientEditor
+          v-model="recipe.recipeIngredient[index]"
+          :is-recipe="ingredientIsRecipe(ingredient)"
+          :autofocus="ingredient.referenceId === autofocusIngredientId"
+          enable-drag-handle
+          enable-context-menu
+          @delete="recipe.recipeIngredient.splice(index, 1)"
+          @insert-above="insertNewIngredient(index)"
+          @insert-below="insertNewIngredient(index + 1)"
+        />
+      </BaseSwipeAction>
     </VueDraggable>
     <v-skeleton-loader
       v-else

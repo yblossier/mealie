@@ -40,14 +40,11 @@
               @keyup.enter="createAndOpenList"
             />
             <div class="d-flex justify-end mt-2 ga-2">
-              <v-btn
-                variant="text"
-                color="grey"
-                size="small"
+              <BaseButton
+                cancel
+                small
                 @click="resetNewListForm"
-              >
-                {{ $t("general.cancel") }}
-              </v-btn>
+              />
               <v-btn
                 variant="tonal"
                 color="primary"
@@ -63,13 +60,10 @@
         </v-expand-transition>
       </v-card-text>
       <template #card-actions>
-        <v-btn
-          variant="text"
-          color="grey"
+        <BaseButton
+          cancel
           @click="dialog = false"
-        >
-          {{ $t("general.cancel") }}
-        </v-btn>
+        />
         <div
           class="d-flex justify-end align-center"
           style="width: 100%;"

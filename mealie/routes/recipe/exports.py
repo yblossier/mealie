@@ -7,6 +7,7 @@ from mealie.core.dependencies import get_temporary_path
 from mealie.routes._base import controller
 from mealie.routes._base.pdf import pdf_file_response
 from mealie.routes._base.routers import UserAPIRouter
+from mealie.services.recipe.recipe_allergen_service import RecipeAllergenService
 from mealie.services.recipe.recipe_pdf_service import RecipePdfRenderer
 from mealie.services.recipe.template_service import TemplateService
 
@@ -39,7 +40,12 @@ class RecipeExportController(BaseRecipeController):
             return FileResponse(file, background=BackgroundTask(rmtree, temp_path))
 
     @router.get("/{slug}/exports/pdf", response_class=FileResponse)
-    def get_recipe_as_pdf(self, slug: str, include_images: bool = True):
+    def get_recipe_as_pdf(self, slug: str, include_images: bool = True, include_tools: bool = True):
         recipe = self.mixins.get_one(slug)
-        renderer = RecipePdfRenderer(self.translator, include_images=include_images)
+        renderer = RecipePdfRenderer(
+            self.translator,
+            include_images=include_images,
+            include_tools=include_tools,
+            allergens=RecipeAllergenService(self.repos).name_finder(),
+        )
         return pdf_file_response(renderer.render_recipe(recipe), recipe.slug)

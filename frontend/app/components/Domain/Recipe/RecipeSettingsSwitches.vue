@@ -40,9 +40,11 @@ const labels: Record<keyof RecipeSettings, string> = {
   public: i18n.t("recipe.public-recipe"),
   showNutrition: i18n.t("recipe.show-nutrition-values"),
   showAssets: i18n.t("asset.show-assets"),
+  showAllergens: i18n.t("recipe.show-allergens"),
   landscapeView: i18n.t("recipe.landscape-view-coming-soon"),
   disableComments: i18n.t("recipe.disable-comments"),
   locked: i18n.t("recipe.locked"),
+  thermomix: i18n.t("recipe.thermomix.recipe-for"),
 };
 </script>
 

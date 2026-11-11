@@ -34,69 +34,75 @@
       <template #form>
         <div class="flex-grow-1">
           <div class="d-flex ga-2 py-2" :class="$vuetify.display.mdAndDown ? 'flex-column' : ''">
-            <v-number-input
-              v-model="model.quantity"
-              variant="filled"
-              :precision="null"
-              :min="0"
-              hide-details
-              inset
-              density="compact"
-              :style="$vuetify.display.mdAndDown ? '' : 'flex: 3 0 50px;'"
-              :placeholder="$t('recipe.quantity')"
-              :autofocus="autofocusQuantity"
-              @keypress="quantityFilter"
-              @update:focused="onQuantityFocused"
-            />
-            <v-autocomplete
-              ref="unitAutocomplete"
-              v-model="model.unit"
-              v-model:search="unitSearch"
-              auto-select-first
-              hide-details
-              density="compact"
-              :style="$vuetify.display.mdAndDown ? '' : 'flex: 4 0 50px;'"
-              variant="filled"
-              return-object
-              :items="filteredUnits"
-              :custom-filter="() => true"
-              item-title="name"
-              :placeholder="$t('recipe.choose-unit')"
-              clearable
-              :menu-props="{ attach: props.menuAttachTarget, maxHeight: '250px' }"
-              @keyup.enter="handleUnitEnter"
+            <!-- quantity and unit stay side by side on small screens; on desktop the wrapper is transparent -->
+            <div
+              class="ingredient-quantity-unit"
+              :class="$vuetify.display.mdAndDown ? 'd-flex ga-2' : 'ingredient-quantity-unit--contents'"
             >
-              <template v-if="unitError" #prepend-inner>
-                <v-tooltip location="bottom">
-                  <template #activator="{ props: unitTooltipProps }">
-                    <v-icon
-                      v-bind="unitTooltipProps"
-                      class="opacity-100"
-                      color="primary"
-                    >
-                      {{ $globals.icons.alert }}
-                    </v-icon>
-                  </template>
-                  <span v-if="unitErrorTooltip">
-                    {{ unitErrorTooltip }}
-                  </span>
-                </v-tooltip>
-              </template>
-              <template #no-data>
-                <div class="caption text-center pb-2">
-                  {{ $t("recipe.press-enter-to-create") }}
-                </div>
-              </template>
-              <template #append-item>
-                <div v-if="showCreateUnit" class="px-2">
-                  <BaseButton
-                    block
-                    size="small"
-                    @click="createAssignUnit()"
-                  />
-                </div>
-              </template>
-            </v-autocomplete>
+              <v-number-input
+                v-model="model.quantity"
+                variant="filled"
+                :precision="null"
+                :min="0"
+                hide-details
+                inset
+                density="compact"
+                :style="$vuetify.display.mdAndDown ? 'flex: 0 0 9rem; min-width: 9rem;' : 'flex: 3 0 50px;'"
+                :placeholder="$t('recipe.quantity')"
+                :autofocus="autofocusQuantity"
+                @keypress="quantityFilter"
+                @update:focused="onQuantityFocused"
+              />
+              <v-autocomplete
+                ref="unitAutocomplete"
+                v-model="model.unit"
+                v-model:search="unitSearch"
+                auto-select-first
+                hide-details
+                density="compact"
+                :style="$vuetify.display.mdAndDown ? 'flex: 1 1 0; min-width: 0;' : 'flex: 4 0 50px;'"
+                variant="filled"
+                return-object
+                :items="filteredUnits"
+                :custom-filter="() => true"
+                item-title="name"
+                :placeholder="$t('recipe.choose-unit')"
+                clearable
+                :menu-props="{ attach: props.menuAttachTarget, maxHeight: '250px' }"
+                @keyup.enter="handleUnitEnter"
+              >
+                <template v-if="unitError" #prepend-inner>
+                  <v-tooltip location="bottom">
+                    <template #activator="{ props: unitTooltipProps }">
+                      <v-icon
+                        v-bind="unitTooltipProps"
+                        class="opacity-100"
+                        color="primary"
+                      >
+                        {{ $globals.icons.alert }}
+                      </v-icon>
+                    </template>
+                    <span v-if="unitErrorTooltip">
+                      {{ unitErrorTooltip }}
+                    </span>
+                  </v-tooltip>
+                </template>
+                <template #no-data>
+                  <div class="caption text-center pb-2">
+                    {{ $t("recipe.press-enter-to-create") }}
+                  </div>
+                </template>
+                <template #append-item>
+                  <div v-if="showCreateUnit" class="px-2">
+                    <BaseButton
+                      block
+                      size="small"
+                      @click="createAssignUnit()"
+                    />
+                  </div>
+                </template>
+              </v-autocomplete>
+            </div>
 
             <!-- Foods Input -->
             <v-autocomplete
@@ -482,3 +488,9 @@ function quantityFilter(e: KeyboardEvent) {
   }
 }
 </script>
+
+<style scoped>
+.ingredient-quantity-unit--contents {
+  display: contents;
+}
+</style>

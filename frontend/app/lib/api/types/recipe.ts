@@ -5,12 +5,20 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
+export type ToolCategory = "dishes" | "linen" | "appliance" | "utensils" | "tableware" | "cutlery";
+export type DishShape = "rectangular" | "round";
+export type DishUsage = "induction" | "gas" | "oven" | "microwave";
 export type ExportTypes = "json";
+export type IngredientFoodNutritionSource = "ciqual" | "usda" | "off" | "ai";
+export type IngredientFoodNutritionLogOrigin = "estimate" | "fill";
+export type IngredientFoodNutritionLogStepKind =
+  "batch" | "single" | "retry" | "lookup" | "open_food_facts" | "usda" | "match";
 export type RegisteredParser = "nlp" | "brute" | "openai";
 export type OrderByNullPosition = "first" | "last";
 export type OrderDirection = "asc" | "desc";
 export type TimelineEventType = "system" | "info" | "comment";
 export type TimelineEventImage = "has image" | "does not have image";
+export type ThermomixLogStatus = "success" | "error";
 
 export interface AssignCategories {
   recipes: string[];
@@ -31,9 +39,11 @@ export interface RecipeSettings {
   public?: boolean;
   showNutrition?: boolean;
   showAssets?: boolean;
+  showAllergens?: boolean;
   landscapeView?: boolean;
   disableComments?: boolean;
   locked?: boolean;
+  thermomix?: boolean;
 }
 export interface AssignTags {
   recipes: string[];
@@ -82,9 +92,13 @@ export interface RecipeSummary {
   totalTime: string | null;
   prepTime: string | null;
   performTime: string | null;
+  coolingTime: string | null;
+  restTime: string | null;
   totalTimeSeconds: number | null;
   prepTimeSeconds: number | null;
   performTimeSeconds: number | null;
+  coolingTimeSeconds: number | null;
+  restTimeSeconds: number | null;
   description: string | null;
   recipeCategory: CategoryOut[];
   tags: TagOut[];
@@ -110,6 +124,15 @@ export interface ToolOut {
   slug: string;
   recipeCount: number;
   householdsWithTool: string[];
+  category: ToolCategory;
+  image: string | null;
+  dishShape: DishShape | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  diameter: number | null;
+  usages: DishUsage[];
+  parentId: string | null;
 }
 export interface DeleteRecipes {
   recipes: string[];
@@ -135,6 +158,16 @@ export interface IngredientFoodAlias {
 export interface IngredientFoodAliasCreate {
   name: string;
 }
+export interface IngredientFoodAllergenFillRequest {
+  foodIds?: string[] | null;
+  overwrite?: boolean;
+}
+export interface IngredientFoodAllergenSuggestRequest {
+  name: string;
+  pluralName?: string | null;
+  aliases?: string[];
+  description?: string | null;
+}
 export interface IngredientFoodCreate {
   id?: string | null;
   name: string;
@@ -147,14 +180,116 @@ export interface IngredientFoodCreate {
   aliases?: IngredientFoodAliasCreate[];
   substitutions?: IngredientFoodSubstitutionCreate[];
   householdsWithIngredientFood?: string[];
+  allergens?: AllergenSummary[];
+  nutrition?: Nutrition | null;
+  averageWeight?: number | null;
+  nutritionSource?: IngredientFoodNutritionSource | null;
+  nutritionReferenceCode?: string | null;
+  nutritionReferenceName?: string | null;
 }
 export interface IngredientFoodSubstitutionCreate {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
+}
+export interface AllergenSummary {
+  id: string;
+  name: string;
+  code: string | null;
+}
+export interface Nutrition {
+  calories?: string | null;
+  carbohydrateContent?: string | null;
+  cholesterolContent?: string | null;
+  fatContent?: string | null;
+  fiberContent?: string | null;
+  proteinContent?: string | null;
+  saturatedFatContent?: string | null;
+  sodiumContent?: string | null;
+  sugarContent?: string | null;
+  transFatContent?: string | null;
+  unsaturatedFatContent?: string | null;
+  calciumContent?: string | null;
+  ironContent?: string | null;
+  magnesiumContent?: string | null;
+  potassiumContent?: string | null;
+  vitaminAContent?: string | null;
+  vitaminCContent?: string | null;
+  vitaminDContent?: string | null;
 }
 export interface IngredientFoodMerge {
   fromFood: string;
   toFood: string;
+}
+export interface IngredientFoodNutritionEstimate {
+  nutrition: Nutrition;
+  averageWeight: number | null;
+  source: IngredientFoodNutritionSource | null;
+  referenceCode: string | null;
+  referenceName: string | null;
+}
+export interface IngredientFoodNutritionEstimateItem {
+  id?: string | null;
+  name: string;
+  pluralName?: string | null;
+  description?: string | null;
+}
+export interface IngredientFoodNutritionEstimateRequest {
+  foods: [IngredientFoodNutritionEstimateItem, ...IngredientFoodNutritionEstimateItem[]];
+}
+export interface IngredientFoodNutritionFillRequest {
+  foodIds: [string, ...string[]];
+  overwrite?: boolean;
+}
+export interface IngredientFoodNutritionIssue {
+  code: string;
+  params?: {
+    [k: string]: string | number;
+  };
+}
+export interface IngredientFoodNutritionLogCorrection {
+  field: string;
+  before?: number | null;
+  after?: number | null;
+}
+export interface IngredientFoodNutritionLogOut {
+  groupId: string;
+  foodId: string;
+  origin: IngredientFoodNutritionLogOrigin;
+  aiModel: string | null;
+  steps: IngredientFoodNutritionLogStep[];
+  corrections: IngredientFoodNutritionLogCorrection[];
+  result: IngredientFoodNutritionEstimate | null;
+  error: string | null;
+  id: string;
+  createdAt: string | null;
+}
+export interface IngredientFoodNutritionLogStep {
+  kind: IngredientFoodNutritionLogStepKind;
+  foodsCount?: number;
+  response?: {
+    [k: string]: unknown;
+  } | null;
+  issues?: IngredientFoodNutritionIssue[];
+  error?: string | null;
+  kept?: boolean;
+}
+export interface IngredientFoodNutritionLogSave {
+  groupId: string;
+  foodId: string;
+  origin: IngredientFoodNutritionLogOrigin;
+  aiModel?: string | null;
+  steps?: IngredientFoodNutritionLogStep[];
+  corrections?: IngredientFoodNutritionLogCorrection[];
+  result?: IngredientFoodNutritionEstimate | null;
+  error?: string | null;
+}
+export interface IngredientFoodNutritionReference {
+  source: IngredientFoodNutritionSource;
+  code: string;
+  name: string;
+  nutrition: Nutrition;
+  averageWeight: number | null;
 }
 export interface IngredientFoodOut {
   id: string;
@@ -168,6 +303,12 @@ export interface IngredientFoodOut {
   aliases: IngredientFoodAlias[];
   substitutions: IngredientFoodSubstitution[];
   householdsWithIngredientFood: string[];
+  allergens: AllergenSummary[];
+  nutrition: Nutrition | null;
+  averageWeight: number | null;
+  nutritionSource: IngredientFoodNutritionSource | null;
+  nutritionReferenceCode: string | null;
+  nutritionReferenceName: string | null;
   label: MultiPurposeLabelSummary | null;
   recipeCount: number;
   createdAt: string | null;
@@ -175,8 +316,10 @@ export interface IngredientFoodOut {
 }
 export interface IngredientFoodSubstitution {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
   substituteFood?: IngredientFoodSummary | null;
+  additionalFoods?: IngredientFoodSummary[];
 }
 export interface IngredientFoodSummary {
   id: string;
@@ -201,6 +344,12 @@ export interface IngredientFoodSave {
   aliases?: IngredientFoodAliasCreate[];
   substitutions?: IngredientFoodSubstitutionCreate[];
   householdsWithIngredientFood?: string[];
+  allergens?: AllergenSummary[];
+  nutrition?: Nutrition | null;
+  averageWeight?: number | null;
+  nutritionSource?: IngredientFoodNutritionSource | null;
+  nutritionReferenceCode?: string | null;
+  nutritionReferenceName?: string | null;
   groupId: string;
 }
 export interface IngredientReferences {
@@ -278,19 +427,6 @@ export interface IngredientsRequest {
 export interface NoteReference {
   referenceId?: string | null;
 }
-export interface Nutrition {
-  calories?: string | null;
-  carbohydrateContent?: string | null;
-  cholesterolContent?: string | null;
-  fatContent?: string | null;
-  fiberContent?: string | null;
-  proteinContent?: string | null;
-  saturatedFatContent?: string | null;
-  sodiumContent?: string | null;
-  sugarContent?: string | null;
-  transFatContent?: string | null;
-  unsaturatedFatContent?: string | null;
-}
 export interface OrganizerDraft {
   id?: string | null;
   groupId?: string | null;
@@ -340,9 +476,13 @@ export interface RecipeDraft {
   totalTime?: string | null;
   prepTime?: string | null;
   performTime?: string | null;
+  coolingTime?: string | null;
+  restTime?: string | null;
   totalTimeSeconds?: number | null;
   prepTimeSeconds?: number | null;
   performTimeSeconds?: number | null;
+  coolingTimeSeconds?: number | null;
+  restTimeSeconds?: number | null;
   description?: string | null;
   recipeCategory?: CategoryDraft[];
   tags?: TagDraft[];
@@ -379,7 +519,18 @@ export interface RecipeStep {
   text: string;
   ingredientReferences?: IngredientReferences[];
   noteReferences?: NoteReference[];
+  toolReferences?: ToolReference[];
+  stepReferences?: StepReference[];
   durationSeconds?: number | null;
+  coolingSeconds?: number | null;
+  cookingSeconds?: number | null;
+  restSeconds?: number | null;
+}
+export interface ToolReference {
+  referenceId?: string | null;
+}
+export interface StepReference {
+  referenceId?: string | null;
 }
 export interface RecipeAsset {
   name: string;
@@ -408,8 +559,10 @@ export interface RecipeCommentUser {
 }
 export interface RecipeIngredientSubstitution {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
   substituteFood?: IngredientFoodSummary | null;
+  additionalFoods?: IngredientFoodSummary[];
 }
 export interface RecipeCommentCreate {
   recipeId: string;
@@ -426,6 +579,7 @@ export interface RecipeCommentUpdate {
 }
 export interface RecipeCreate {
   name: string;
+  thermomix?: boolean;
 }
 export interface RecipeDuplicate {
   name?: string | null;
@@ -440,6 +594,7 @@ export interface RecipeIngredientBase {
 }
 export interface RecipeIngredientSubstitutionCreate {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
 }
 export interface RecipeLastMade {
@@ -459,9 +614,13 @@ export interface RecipeOut {
   totalTime: string | null;
   prepTime: string | null;
   performTime: string | null;
+  coolingTime: string | null;
+  restTime: string | null;
   totalTimeSeconds: number | null;
   prepTimeSeconds: number | null;
   performTimeSeconds: number | null;
+  coolingTimeSeconds: number | null;
+  restTimeSeconds: number | null;
   description: string | null;
   recipeCategory: CategoryOut[];
   tags: TagOut[];
@@ -532,6 +691,29 @@ export interface RecipeSuggestionResponseItem {
 export interface RecipeSuggestionSubstitutedFood {
   food: IngredientFoodOut;
   substituteFood: IngredientFoodSummary;
+}
+export interface RecipeThermomixView {
+  steps: ThermomixStep[];
+  notes: string[];
+  model: string | null;
+  createdAt: string;
+}
+export interface ThermomixStep {
+  id?: string;
+  title?: string | null;
+  summary?: string | null;
+  text: string;
+  timeSeconds?: number | null;
+  coolingSeconds?: number | null;
+  cookingSeconds?: number | null;
+  restSeconds?: number | null;
+  temperature?: string | null;
+  speed?: string | null;
+  reverse?: boolean;
+  accessory?: string | null;
+  sourceStepIds?: string[];
+  toolIds?: string[];
+  cautions?: string[];
 }
 export interface RecipeTimelineEventCreate {
   recipeId: string;
@@ -605,6 +787,7 @@ export interface ScrapeRecipeTest {
 }
 export interface SubstitutionBase {
   substituteFoodId?: string | null;
+  additionalFoodIds?: string[];
   note?: string | null;
 }
 export interface TagCreate {
@@ -622,13 +805,47 @@ export interface TagWithRecipes {
   recipeCount: number;
   recipes: RecipeSummary[];
 }
+export interface ThermomixLogEntry {
+  id: string;
+  createdAt: string;
+  status: ThermomixLogStatus;
+  user: string | null;
+  provider: string | null;
+  model: string | null;
+  timeoutSeconds: number | null;
+  durationMs: number;
+  promptChars: number;
+  estimatedTokens: number;
+  request: string;
+  response: {
+    [k: string]: unknown;
+  } | null;
+  stepsCount: number;
+  error: string | null;
+}
 export interface ToolCreate {
   name: string;
   householdsWithTool?: string[];
+  category?: ToolCategory;
+  dishShape?: DishShape | null;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
+  diameter?: number | null;
+  usages?: DishUsage[];
+  parentId?: string | null;
 }
 export interface ToolSave {
   name: string;
   householdsWithTool?: string[];
+  category?: ToolCategory;
+  dishShape?: DishShape | null;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
+  diameter?: number | null;
+  usages?: DishUsage[];
+  parentId?: string | null;
   groupId: string;
 }
 export interface ToolWithRecipes {
@@ -638,6 +855,15 @@ export interface ToolWithRecipes {
   slug: string;
   recipeCount: number;
   householdsWithTool: string[];
+  category: ToolCategory;
+  image: string | null;
+  dishShape: DishShape | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  diameter: number | null;
+  usages: DishUsage[];
+  parentId: string | null;
   recipes: RecipeSummary[];
 }
 export interface UnitFoodBase {

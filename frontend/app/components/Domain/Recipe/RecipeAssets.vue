@@ -1,6 +1,12 @@
 <template>
   <div v-if="model.length > 0 || edit">
-    <v-card class="mt-4">
+    <v-card
+      class="mt-4"
+      @dragenter.prevent="onDragEnter"
+      @dragover.prevent="onDragOver"
+      @dragleave="onDragLeave"
+      @drop.prevent="onDrop"
+    >
       <v-list-item class="pr-2 pl-0">
         <v-card-title>
           {{ $t("asset.assets") }}
@@ -15,6 +21,29 @@
         </template>
       </v-list-item>
       <v-divider class="mx-2" />
+      <div
+        v-if="edit"
+        class="asset-drop-zone ma-2 pa-3 d-flex align-center justify-center text-center text-body-2"
+        :class="{ 'asset-drop-zone--active': dropping }"
+        data-testid="asset-drop-zone"
+      >
+        <v-progress-circular
+          v-if="uploadingCount > 0"
+          indeterminate
+          size="20"
+          width="2"
+          color="primary"
+          class="mr-2"
+        />
+        <v-icon
+          v-else
+          class="mr-2"
+          :color="dropping ? 'primary' : undefined"
+        >
+          {{ $globals.icons.upload }}
+        </v-icon>
+        {{ $t("asset.drop-files-here") }}
+      </div>
       <v-list
         v-if="model.length > 0"
         lines="two"
@@ -316,4 +345,108 @@ async function addAsset() {
   state.newAsset = { name: "", icon: "mdi-file" };
   state.fileObject = {} as File;
 }
+
+// dropping files on the block uploads them straight away, the type being deduced from the file
+const DROPPABLE_ASSET_ICONS: Record<string, string> = {
+  png: "mdi-file-image",
+  jpg: "mdi-file-image",
+  jpeg: "mdi-file-image",
+  gif: "mdi-file-image",
+  webp: "mdi-file-image",
+  bmp: "mdi-file-image",
+  avif: "mdi-file-image",
+  txt: "mdi-file",
+  doc: "mdi-file",
+  docx: "mdi-file",
+  pdf: "mdi-file-pdf-box",
+};
+
+const dropping = ref(false);
+const uploadingCount = ref(0);
+let dragDepth = 0;
+
+function hasFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+}
+
+function onDragEnter(event: DragEvent) {
+  if (!props.edit || !hasFiles(event)) {
+    return;
+  }
+  dragDepth++;
+  dropping.value = true;
+}
+
+function onDragOver(event: DragEvent) {
+  if (props.edit && hasFiles(event) && event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+}
+
+function onDragLeave() {
+  if (!dropping.value) {
+    return;
+  }
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) {
+    dropping.value = false;
+  }
+}
+
+async function onDrop(event: DragEvent) {
+  dragDepth = 0;
+  dropping.value = false;
+  if (!props.edit) {
+    return;
+  }
+
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  const rejected: string[] = [];
+  for (const file of files) {
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const icon = DROPPABLE_ASSET_ICONS[extension];
+    if (!icon) {
+      rejected.push(file.name);
+      continue;
+    }
+
+    uploadingCount.value++;
+    try {
+      const dot = file.name.lastIndexOf(".");
+      const { data } = await api.recipes.createAsset(props.slug, {
+        name: dot > 0 ? file.name.substring(0, dot) : file.name,
+        icon,
+        file,
+        extension,
+      });
+      if (data) {
+        model.value = [...model.value, data];
+      }
+    }
+    finally {
+      uploadingCount.value--;
+    }
+  }
+
+  if (rejected.length) {
+    alert.warning(i18n.t("asset.unsupported-dropped-files", { files: rejected.join(", ") }));
+  }
+}
 </script>
+
+<style scoped>
+.asset-drop-zone {
+  border: 2px dashed rgba(var(--v-border-color), 0.3);
+  border-radius: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.asset-drop-zone--active {
+  border-color: rgb(var(--v-theme-primary));
+  background-color: rgba(var(--v-theme-primary), 0.08);
+  color: rgb(var(--v-theme-primary));
+}
+</style>

@@ -28,13 +28,11 @@
     <v-divider />
     <v-card-actions :class="$vuetify.display.xs ? 'pb-4 grid-small' : undefined">
       <slot name="card-actions">
-        <v-btn
-          variant="text"
-          color="grey"
+        <BaseButton
+          cancel
+          :text="cancelLabel"
           @click="emit('cancel')"
-        >
-          {{ cancelLabel }}
-        </v-btn>
+        />
         <v-spacer v-if="!$vuetify.display.xs" />
         <slot name="custom-card-action" />
         <BaseButton

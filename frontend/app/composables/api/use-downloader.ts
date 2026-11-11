@@ -6,7 +6,8 @@ export function useDownloader() {
   async function download(url: string, filename: string): Promise<boolean> {
     let blob: Blob;
     try {
-      blob = await $fetch<Blob>(url, { responseType: "blob" });
+      // Generated files (PDFs) are written in the user's language, which the browser's own header may not name.
+      blob = await $fetch<Blob>(url, { responseType: "blob", headers: { "Accept-Language": useGlobalI18n().locale.value } });
     }
     catch (error) {
       console.error("Download failed", error);

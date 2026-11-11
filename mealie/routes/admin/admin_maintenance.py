@@ -9,12 +9,16 @@ from mealie.routes._base import BaseAdminController, controller
 from mealie.schema.admin import MaintenanceSummary
 from mealie.schema.admin.maintenance import MaintenanceStorageDetails
 from mealie.schema.response import ErrorResponse, SuccessResponse
+from mealie.services.maintenance import database_maintenance
 
 router = APIRouter(prefix="/maintenance")
 
 
 def clean_images(root_dir: Path, dry_run: bool) -> int:
     cleaned_images = 0
+
+    if not root_dir.exists():
+        return cleaned_images
 
     for recipe_dir in root_dir.iterdir():
         image_dir = recipe_dir.joinpath("images")
@@ -37,6 +41,9 @@ def clean_images(root_dir: Path, dry_run: bool) -> int:
 
 def clean_recipe_folders(root_dir: Path, dry_run: bool) -> int:
     cleaned_dirs = 0
+
+    if not root_dir.exists():
+        return cleaned_dirs
 
     for recipe_dir in root_dir.iterdir():
         if recipe_dir.is_dir():
@@ -70,10 +77,14 @@ class AdminMaintenanceController(BaseAdminController):
         Get the maintenance summary
         """
 
+        database_size = database_maintenance.get_database_size(self.session)
+
         return MaintenanceSummary(
             data_dir_size=fs_stats.pretty_size(fs_stats.get_dir_size(self.folders.DATA_DIR)),
+            database_size=fs_stats.pretty_size(database_size) if database_size is not None else "-",
             cleanable_images=clean_images(self.folders.RECIPE_DATA_DIR, dry_run=True),
             cleanable_dirs=clean_recipe_folders(self.folders.RECIPE_DATA_DIR, dry_run=True),
+            cleanable_database_rows=database_maintenance.count_cleanable_rows(self.session),
         )
 
     @router.get("/storage", response_model=MaintenanceStorageDetails)
@@ -108,6 +119,22 @@ class AdminMaintenanceController(BaseAdminController):
             raise HTTPException(status_code=500, detail=ErrorResponse.respond("Failed to clean temp")) from e
 
         return SuccessResponse.respond("'.temp' directory cleaned")
+
+    @router.post("/clean/database", response_model=SuccessResponse)
+    def clean_database(self):
+        """
+        Deletes the AI logs and the reports older than one month, then compacts the database
+        """
+        try:
+            result = database_maintenance.clean_database(self.session)
+        except Exception as e:
+            self.session.rollback()
+            raise HTTPException(status_code=500, detail=ErrorResponse.respond("Failed to clean database")) from e
+
+        size = fs_stats.pretty_size(result.size_after) if result.size_after is not None else "-"
+        return SuccessResponse.respond(
+            f"{result.ai_logs_deleted} AI logs and {result.reports_deleted} reports removed, database size: {size}"
+        )
 
     @router.post("/clean/recipe-folders", response_model=SuccessResponse)
     def clean_recipe_folders(self):

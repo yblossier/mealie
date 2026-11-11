@@ -7,20 +7,20 @@ from .maintenance import MaintenanceStorageDetails, MaintenanceSummary
 from .migration import MigrationFile, Migrations
 
 __all__ = [
-    "AllBackups",
-    "BackupFile",
-    "MaintenanceStorageDetails",
-    "MaintenanceSummary",
     "AdminAboutInfo",
     "AppInfo",
     "AppStartupInfo",
     "AppStatistics",
     "AppTheme",
     "CheckAppConfig",
+    "AllBackups",
+    "BackupFile",
     "DebugResponse",
     "EmailReady",
     "EmailSuccess",
     "EmailTest",
+    "MaintenanceStorageDetails",
+    "MaintenanceSummary",
     "MigrationFile",
     "Migrations",
 ]

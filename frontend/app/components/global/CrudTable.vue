@@ -54,12 +54,12 @@
     </div>
     <v-data-table
       v-model="selected"
+      v-model:items-per-page="pageSize"
       return-object
       :headers="activeHeaders"
       :show-select="bulkActions.length > 0"
       :sort-by="sortBy"
       :items="data || []"
-      :items-per-page="15"
       :search="search"
       class="elevation-2"
     >
@@ -75,22 +75,29 @@
         </slot>
       </template>
       <template #[`item.actions`]="{ item }">
-        <BaseButtonGroup
-          :buttons="[
-            {
-              icon: $globals.icons.edit,
-              text: $t('general.edit'),
-              event: 'edit',
-            },
-            {
-              icon: $globals.icons.delete,
-              text: $t('general.delete'),
-              event: 'delete',
-            },
-          ]"
-          @delete="$emit('delete-one', item)"
-          @edit="$emit('edit-one', item)"
-        />
+        <div class="d-flex align-center justify-end flex-nowrap">
+          <slot name="item.actions-prepend" v-bind="{ item }" />
+          <BaseButtonGroup
+            :buttons="[
+              ...rowActions,
+              {
+                icon: $globals.icons.edit,
+                text: $t('general.edit'),
+                event: 'edit',
+              },
+              {
+                icon: $globals.icons.delete,
+                text: $t('general.delete'),
+                event: 'delete',
+              },
+            ]"
+            :size="rowActions.length ? 'small' : undefined"
+            :class="{ 'd-flex flex-nowrap': rowActions.length }"
+            v-on="rowActionListener(item)"
+            @delete="$emit('delete-one', item)"
+            @edit="$emit('edit-one', item)"
+          />
+        </div>
       </template>
     </v-data-table>
     <v-card-actions class="justify-end">
@@ -151,9 +158,17 @@ const props = defineProps({
     type: Array as () => BulkAction[],
     default: () => [],
   },
+  rowActions: {
+    type: Array as () => BulkAction[],
+    default: () => [],
+  },
   initialSort: {
     type: String,
     default: "id",
+  },
+  itemsPerPage: {
+    type: Number,
+    default: 15,
   },
   initialSortDesc: {
     type: Boolean,
@@ -164,6 +179,7 @@ const props = defineProps({
 const emit = defineEmits<{
   (e: "delete-one" | "edit-one", item: any): void;
   (e: "bulk-action", event: string, items: any[]): void;
+  (e: "row-action", event: string, item: any): void;
 }>();
 
 const sortBy = computed<{ key: string; order: "asc" | "desc" }[]>(() => [{
@@ -218,7 +234,21 @@ const bulkActionListener = computed(() => {
   return handlers;
 });
 
+function rowActionListener(item: any) {
+  const handlers: { [key: string]: () => void } = {};
+  props.rowActions.forEach((action) => {
+    handlers[action.event] = () => emit("row-action", action.event, item);
+  });
+  return handlers;
+}
+
 const search = ref("");
+
+// The default page size, which the user can still change in the table
+const pageSize = ref(props.itemsPerPage);
+watch(() => props.itemsPerPage, (value) => {
+  pageSize.value = value;
+});
 </script>
 
 <style>

@@ -18,6 +18,9 @@ vi.mock("~/composables/api", () => ({
 vi.mock("~/composables/use-users/preferences", () => ({
   useUserActivityPreferences: () => ref({ defaultActivity: "recipes" }),
 }));
+vi.mock("~/composables/use-groups", () => ({
+  useGroupSelf: () => ({ group: ref(null), actions: { refresh: vi.fn() } }),
+}));
 vi.mock("~/composables/use-default-activity", () => ({
   default: () => ({
     getDefaultActivityLabels: () => [],

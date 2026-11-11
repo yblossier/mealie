@@ -62,8 +62,9 @@
       <v-divider class="mx-2" />
       <v-card-text>
         <RecipeOrganizerSelector
-          v-model="recipe.tools"
+          :model-value="recipe.tools"
           selector-type="tools"
+          @update:model-value="updateTools"
         />
       </v-card-text>
     </v-card>
@@ -72,6 +73,7 @@
       v-if="recipe.settings.showNutrition"
       v-model="recipe.nutrition"
       class="mt-4"
+      :recipe="recipe"
       :edit="isEditForm"
     />
     <RecipeAssets
@@ -89,15 +91,24 @@
 <script setup lang="ts">
 import { usePageState } from "~/composables/recipe-page/shared-state";
 import { useStaticRoutes } from "~/composables/api";
-import type { RecipeOut } from "~/lib/api/types/recipe";
+import type { RecipeOut, ToolOut } from "~/lib/api/types/recipe";
 import RecipeOrganizerSelector from "@/components/Domain/Recipe/RecipeOrganizerSelector.vue";
 import RecipeNutrition from "~/components/Domain/Recipe/RecipeNutrition.vue";
 import RecipeChips from "@/components/Domain/Recipe/RecipeChips.vue";
 import RecipeAssets from "@/components/Domain/Recipe/RecipeAssets.vue";
+import { useToolStore } from "~/composables/store";
+import { withToolAccessories } from "~/lib/recipe/tool-display";
 
 const recipe = defineModel<RecipeOut>({ required: true });
 const { isEditForm, imageKey } = usePageState(recipe.value.slug);
 const { recipeImage } = useStaticRoutes();
 
 const heroImageUrl = computed(() => recipe.value.image ? recipeImage(recipe.value.id, recipe.value.image, imageKey.value) : undefined);
+
+const toolStore = useToolStore();
+
+// an accessory brings its appliance along, and removing an appliance removes its accessories
+function updateTools(tools: ToolOut[] | undefined) {
+  recipe.value.tools = withToolAccessories(recipe.value.tools ?? [], tools ?? [], toolStore.store.value);
+}
 </script>

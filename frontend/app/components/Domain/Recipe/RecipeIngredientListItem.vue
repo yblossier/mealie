@@ -9,7 +9,7 @@
       {{ parsedIng.unit }}
     </template>
     <template v-if="parsedIng.note && !parsedIng.name">
-      <SafeMarkdown class="text-bold d-inline" :source="parsedIng.note" />
+      <SafeMarkdown class="text-bold d-inline" :class="nameClass" :source="parsedIng.note" />
       <RecipeIngredientSubstitutions v-if="showSubstitutions" :ingredient="ingredient" :scale="scale" />
     </template>
     <template v-else-if="parsedIng.recipeLink">
@@ -21,6 +21,7 @@
       <SafeMarkdown
         v-if="parsedIng.name"
         class="text-bold d-inline"
+        :class="nameClass"
         :source="parsedIng.name"
       />
       <!-- sits before the note, which takes a full block row beneath -->
@@ -38,6 +39,7 @@
 import type { RecipeIngredient } from "~/lib/api/types/household";
 import { useIngredientTextParser } from "~/composables/recipes";
 import RecipeIngredientSubstitutions from "~/components/Domain/Recipe/RecipeIngredientSubstitutions.vue";
+import { ingredientAllergenNames } from "~/lib/recipe/ingredient-allergens";
 
 interface Props {
   ingredient: RecipeIngredient;
@@ -45,10 +47,20 @@ interface Props {
   // off by default: the shopping list and the add-to-list dialog reuse this row, and a menu
   // button is noise in both. the recipe renderer opts in
   showSubstitutions?: boolean;
+  // the recipe renderer sets it so only the ingredients whose food is linked to an allergen read bold
+  highlightAllergens?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   scale: 1,
   showSubstitutions: false,
+  highlightAllergens: false,
+});
+
+const nameClass = computed(() => {
+  if (!props.highlightAllergens) {
+    return undefined;
+  }
+  return ingredientAllergenNames(props.ingredient).length ? "ingredient-allergen" : "ingredient-plain";
 });
 const route = useRoute();
 const auth = useMealieAuth();
@@ -100,6 +112,14 @@ const parsedIng = computed(() => {
     }
     & > p {
       display: inline;
+    }
+
+    &.ingredient-plain {
+      font-weight: normal;
+    }
+
+    &.ingredient-allergen {
+      font-weight: 800;
     }
   }
 

@@ -1,4 +1,6 @@
 import json
+from datetime import datetime
+from uuid import uuid4
 
 from mealie.core.config import get_app_settings
 from mealie.db.models._model_base import SqlAlchemyBase
@@ -36,3 +38,22 @@ def test_every_datetime_column_survives_a_backup():
         f"datetime columns missing from AlchemyExporter.look_for_datetime: {sorted(unregistered)}. "
         "Add them, or they will restore as strings."
     )
+
+
+def test_json_columns_are_restored_as_dumped():
+    """A JSON column holding an object is restored untouched, next to the other columns of its row"""
+    exporter = AlchemyExporter(get_app_settings().DB_URL)
+    row_id = str(uuid4())
+    payload = {"id": str(uuid4()), "created_at": "2024-01-02T03:04:05", "nested": {"date": "2024-01-02"}}
+    suppliers = [{"name": "Shop", "url": "https://shop.test/?q={query}"}]
+
+    row = exporter.convert_types(
+        {"id": row_id, "payload": payload, "tool_suppliers": suppliers, "created_at": "2024-01-02T03:04:05"}
+    )
+
+    assert set(row) == {"id", "payload", "tool_suppliers", "created_at"}
+    assert row["payload"] == payload
+    assert row["tool_suppliers"] == suppliers
+    assert isinstance(row["created_at"], datetime)
+
+    exporter.engine.dispose()

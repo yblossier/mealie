@@ -16,6 +16,13 @@ class Nutrition(MealieModel):
     sugar_content: str | None = None
     trans_fat_content: str | None = None
     unsaturated_fat_content: str | None = None
+    calcium_content: str | None = None
+    iron_content: str | None = None
+    magnesium_content: str | None = None
+    potassium_content: str | None = None
+    vitamin_a_content: str | None = None
+    vitamin_c_content: str | None = None
+    vitamin_d_content: str | None = None
 
     model_config = ConfigDict(
         from_attributes=True,

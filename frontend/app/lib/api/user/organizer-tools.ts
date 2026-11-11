@@ -10,6 +10,7 @@ const routes = {
   toolsSlug: (id: string) => `${prefix}/tools/slug/${id}`,
   toolsEmpty: `${prefix}/tools/empty`,
   toolsMerge: `${prefix}/tools/merge`,
+  toolsIdImage: (id: string) => `${prefix}/tools/${id}/image`,
 };
 
 export class ToolsApi extends BaseCRUDAPI<ToolCreate, ToolOut> {
@@ -26,5 +27,15 @@ export class ToolsApi extends BaseCRUDAPI<ToolCreate, ToolOut> {
 
   merge(fromId: string, toId: string) {
     return this.requests.post<ToolOut>(routes.toolsMerge, { fromId, toId });
+  }
+
+  updateImage(id: string, file: File) {
+    const formData = new FormData();
+    formData.append("image", file);
+    return this.requests.put<ToolOut, FormData>(routes.toolsIdImage(id), formData);
+  }
+
+  deleteImage(id: string) {
+    return this.requests.delete<ToolOut>(routes.toolsIdImage(id));
   }
 }

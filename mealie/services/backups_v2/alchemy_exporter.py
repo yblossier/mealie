@@ -66,6 +66,8 @@ class AlchemyExporter(BaseService):
         "last_made",
         "completed_date",
         "tokens_valid_after",
+        "imported_at",
+        "started_at",
     }
     """Column names restored back into datetimes. Anything stored as a `NaiveDateTime` and missing
     here comes back from a backup as a string; `test_every_datetime_column_survives_a_backup` guards
@@ -115,7 +117,8 @@ class AlchemyExporter(BaseService):
         """
         for key, value in data.items():
             if isinstance(value, dict):
-                data = self.convert_types(value)
+                # A JSON column: its content is restored as it was dumped
+                continue
             elif isinstance(value, list):  # assume that this is a list of dictionaries
                 data[key] = [self.convert_types(item) for item in value]
             elif isinstance(value, str):
@@ -226,7 +229,9 @@ class AlchemyExporter(BaseService):
                     rows = self.clean_rows(db_dump, table, rows)
 
                     connection.execute(table.delete())
-                    connection.execute(insert(table), rows)
+                    # Every row may have been dropped for an invalid foreign key
+                    if rows:
+                        connection.execute(insert(table), rows)
                 if self.engine.dialect.name == "postgresql":
                     # Restore postgres sequence numbers
                     sequences = [
