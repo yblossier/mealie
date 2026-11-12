@@ -22,7 +22,7 @@
         </div>
         <v-card flat>
           <v-card-text>
-            <p v-if="!linkBlocks.length" class="text-body-2 text-medium-emphasis">
+            <p v-if="!linkBlocks.length" class="text-body-medium text-medium-emphasis">
               {{ $t("recipe.no-references-to-link") }}
             </p>
             <div
@@ -147,7 +147,7 @@
     >
       <h2
         v-if="!isCookMode"
-        class="mt-1 text-h5 font-weight-medium opacity-80"
+        class="mt-1 text-headline-small font-weight-medium opacity-80"
       >
         {{ $t("recipe.instructions") }}
       </h2>
@@ -585,7 +585,7 @@
                     <div
                       v-for="(noteRef, i) in step.noteReferences"
                       :key="noteRef.referenceId ?? i"
-                      class="mb-1 d-flex align-center text-body-2"
+                      class="mb-1 d-flex align-center text-body-medium"
                     >
                       <v-icon size="14" class="mr-1" style="cursor: default;">
                         {{ $globals.icons.noteTextOutline }}
@@ -600,7 +600,7 @@
                     <div
                       v-for="tool in linkedToolsForStep(step)"
                       :key="tool.id"
-                      class="mb-1 d-flex align-center text-body-2"
+                      class="mb-1 d-flex align-center text-body-medium"
                     >
                       <v-icon size="14" class="mr-1" style="cursor: default;">
                         {{ toolCategoryIcon(tool.category) }}
@@ -703,7 +703,7 @@
                           class="step-uses d-flex flex-wrap align-center ga-2 mb-2"
                           data-testid="step-uses"
                         >
-                          <span class="text-body-2 text-medium-emphasis d-flex align-center">
+                          <span class="text-body-medium text-medium-emphasis d-flex align-center">
                             <v-icon size="16" class="mr-1">
                               {{ $globals.icons.sourceMerge }}
                             </v-icon>

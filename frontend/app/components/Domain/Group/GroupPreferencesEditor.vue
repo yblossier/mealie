@@ -10,7 +10,7 @@
         :label="$t('group.private-group')"
       />
       <div class="ml-8">
-        <p class="text-subtitle-2 my-0 py-0">
+        <p class="text-title-small my-0 py-0">
           {{ $t("group.private-group-description") }}
         </p>
         <DocLink
@@ -28,7 +28,7 @@
         :label="$t('announcements.show-announcements-from-mealie')"
       />
       <div class="ml-8">
-        <p class="text-subtitle-2 my-0 py-0">
+        <p class="text-title-small my-0 py-0">
           {{ $t("announcements.show-announcements-setting-description") }}
         </p>
       </div>
@@ -62,7 +62,7 @@
         :label="$t('group.show-tool-supplier-links')"
       />
       <div class="ml-8 mb-4">
-        <p class="text-subtitle-2 my-0 py-0">
+        <p class="text-title-small my-0 py-0">
           {{ $t("group.show-tool-supplier-links-description") }}
         </p>
       </div>

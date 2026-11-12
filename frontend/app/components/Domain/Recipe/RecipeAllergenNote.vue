@@ -20,7 +20,7 @@
           </template>
         </template>
       </i18n-t>
-      <div v-if="!print" class="text-caption text-medium-emphasis mt-1">
+      <div v-if="!print" class="text-body-small text-medium-emphasis mt-1">
         {{ $t("recipe.allergens-hint") }}
       </div>
     </div>

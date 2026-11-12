@@ -55,7 +55,7 @@
             {{ name }}
           </li>
         </ul>
-        <div v-if="unusedFoodNamesRemaining > 0" class="text-body-2 pl-2">
+        <div v-if="unusedFoodNamesRemaining > 0" class="text-body-medium pl-2">
           {{ $t('data-pages.delete-unused-more', { count: unusedFoodNamesRemaining }) }}
         </div>
       </v-card-text>
@@ -94,7 +94,7 @@
           </template>
         </v-autocomplete>
 
-        <v-alert v-if="foods && foods.length > 0" type="error" class="mb-0 text-body-2">
+        <v-alert v-if="foods && foods.length > 0" type="error" class="mb-0 text-body-medium">
           {{ $t("data-pages.foods.seed-dialog-warning") }}
         </v-alert>
       </v-card-text>
@@ -117,7 +117,7 @@
       :cancel-text="$t('general.close')"
     >
       <v-card-text>
-        <div class="pb-2 text-subtitle-1 font-weight-bold">
+        <div class="pb-2 text-body-large font-weight-bold">
           {{ nutritionViewTarget?.name }}
         </div>
         <template v-if="nutritionViewHasValues">
@@ -229,7 +229,7 @@
         <v-tooltip
           location="bottom"
           open-delay="200"
-          content-class="text-caption"
+          content-class="text-body-small"
           :text="item.hasNutrition ? $t('data-pages.foods.view-nutrition') : $t('data-pages.foods.no-nutrition-values')"
         >
           <template #activator="{ props: tooltipProps }">
@@ -278,7 +278,7 @@
       </template>
 
       <template #[`item.allergens`]="{ item }">
-        <v-tooltip location="bottom" open-delay="200" content-class="text-caption">
+        <v-tooltip location="bottom" open-delay="200" content-class="text-body-small">
           <template #activator="{ props: tooltipProps }">
             <v-chip
               v-bind="tooltipProps"
@@ -320,13 +320,13 @@
       </template>
 
       <template #create-dialog-top>
-        <div class="text-subtitle-1 font-weight-medium px-2" data-testid="food-section-general">
+        <div class="text-body-large font-weight-medium px-2" data-testid="food-section-general">
           {{ $t("data-pages.foods.section-general") }}
         </div>
       </template>
 
       <template #edit-dialog-top>
-        <div class="text-subtitle-1 font-weight-medium px-2" data-testid="food-section-general">
+        <div class="text-body-large font-weight-medium px-2" data-testid="food-section-general">
           {{ $t("data-pages.foods.section-general") }}
         </div>
       </template>

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <p class="text-subtitle-2 mb-3">
+    <p class="text-title-small mb-3">
       {{ $t("group.tool-suppliers-description") }}
     </p>
     <div

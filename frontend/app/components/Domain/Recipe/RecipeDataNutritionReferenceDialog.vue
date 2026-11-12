@@ -46,7 +46,7 @@
           </v-list-item-subtitle>
         </v-list-item>
       </v-list>
-      <div v-if="offLoading" class="d-flex align-center ga-2 pt-2 text-caption text-medium-emphasis" data-testid="nutrition-off-loading">
+      <div v-if="offLoading" class="d-flex align-center ga-2 pt-2 text-body-small text-medium-emphasis" data-testid="nutrition-off-loading">
         <v-progress-circular indeterminate size="14" width="2" />
         {{ $t("data-pages.foods.nutrition-search-open-food-facts-loading") }}
       </div>
@@ -63,7 +63,7 @@
       <div v-else-if="offSearched && !offReferences.length && !offLoading" class="pt-3 text-medium-emphasis">
         {{ $t("data-pages.foods.nutrition-search-open-food-facts-no-results", { search: offSearched }) }}
       </div>
-      <div class="pt-2 text-caption text-medium-emphasis">
+      <div class="pt-2 text-body-small text-medium-emphasis">
         {{ $t("data-pages.foods.nutrition-search-hint") }}
       </div>
     </v-card-text>

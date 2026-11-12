@@ -7,7 +7,7 @@
     width="800"
   >
     <v-card-text>
-      <div class="pb-2 text-subtitle-1 font-weight-bold">
+      <div class="pb-2 text-body-large font-weight-bold">
         {{ food?.name }}
       </div>
       <div v-if="loading" class="d-flex justify-center py-4">
@@ -27,7 +27,7 @@
               <v-chip size="x-small" variant="tonal">
                 {{ $t(`data-pages.foods.nutrition-history-origin-${log.origin}`) }}
               </v-chip>
-              <span v-if="log.aiModel" class="text-caption text-medium-emphasis">
+              <span v-if="log.aiModel" class="text-body-small text-medium-emphasis">
                 {{ $t("data-pages.foods.nutrition-history-model", { model: log.aiModel }) }}
               </span>
             </div>
@@ -49,23 +49,23 @@
                   {{ $t(step.kept ? "data-pages.foods.nutrition-history-kept" : "data-pages.foods.nutrition-history-discarded") }}
                 </v-chip>
               </div>
-              <div v-if="step.error" class="text-error text-body-2">
+              <div v-if="step.error" class="text-error text-body-medium">
                 {{ $t("data-pages.foods.nutrition-history-error", { error: step.error }) }}
               </div>
               <template v-else>
-                <ul v-if="step.issues?.length" class="ml-4 text-body-2 text-warning">
+                <ul v-if="step.issues?.length" class="ml-4 text-body-medium text-warning">
                   <li v-for="issue in step.issues" :key="issue.code">
                     {{ issueText(issue) }}
                   </li>
                 </ul>
-                <div v-else class="text-body-2 text-medium-emphasis">
+                <div v-else class="text-body-medium text-medium-emphasis">
                   {{ $t("data-pages.foods.nutrition-history-no-issues") }}
                 </div>
                 <details v-if="step.response" class="mt-1">
-                  <summary class="text-caption cursor-pointer">
+                  <summary class="text-body-small cursor-pointer">
                     {{ $t("data-pages.foods.nutrition-history-raw-response") }}
                   </summary>
-                  <pre class="text-caption raw-response">{{ JSON.stringify(step.response, null, 2) }}</pre>
+                  <pre class="text-body-small raw-response">{{ JSON.stringify(step.response, null, 2) }}</pre>
                 </details>
               </template>
             </div>
@@ -74,7 +74,7 @@
               <div class="font-weight-bold mb-1">
                 {{ $t("data-pages.foods.nutrition-history-corrections") }}
               </div>
-              <ul class="ml-4 mb-3 text-body-2" data-testid="nutrition-history-corrections">
+              <ul class="ml-4 mb-3 text-body-medium" data-testid="nutrition-history-corrections">
                 <li v-for="correction in log.corrections" :key="correction.field">
                   {{ fieldLabel(correction.field) }} : {{ formatValue(correction.before) }} → {{ formatValue(correction.after) }}
                 </li>
@@ -84,12 +84,12 @@
             <div class="font-weight-bold mb-1">
               {{ $t("data-pages.foods.nutrition-history-result") }}
             </div>
-            <div v-if="resultFields(log).length" class="text-body-2" data-testid="nutrition-history-result">
+            <div v-if="resultFields(log).length" class="text-body-medium" data-testid="nutrition-history-result">
               <span v-for="field in resultFields(log)" :key="field.key" class="mr-4 d-inline-block">
                 {{ field.label }} : <strong>{{ field.value }}</strong> {{ field.suffix }}
               </span>
             </div>
-            <div v-else class="text-body-2 text-medium-emphasis">
+            <div v-else class="text-body-medium text-medium-emphasis">
               {{ $t("data-pages.foods.nutrition-history-no-result") }}
             </div>
             <RecipeDataNutritionSource

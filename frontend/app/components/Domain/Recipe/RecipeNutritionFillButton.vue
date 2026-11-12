@@ -45,7 +45,7 @@
             </v-list-item-subtitle>
           </v-list-item>
         </v-list>
-        <div class="pt-2 text-caption">
+        <div class="pt-2 text-body-small">
           {{ $t("recipe.nutrition-calculation-hint") }}
         </div>
       </v-card-text>

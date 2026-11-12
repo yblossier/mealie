@@ -9,7 +9,7 @@
       variant="tonal"
       class="pa-4 text-center"
     >
-      <p class="text-body-1 mb-4">
+      <p class="text-body-large mb-4">
         {{ $t("recipe.thermomix.not-generated") }}
       </p>
       <BaseButton
@@ -23,7 +23,7 @@
         </template>
         {{ $t("recipe.thermomix.generate") }}
       </BaseButton>
-      <p v-if="generating" class="text-body-2 text-medium-emphasis mt-3">
+      <p v-if="generating" class="text-body-medium text-medium-emphasis mt-3">
         {{ $t("recipe.thermomix.generating") }}
       </p>
     </v-card>
@@ -170,7 +170,7 @@
       </v-card>
 
       <div class="d-flex align-center flex-wrap ga-2">
-        <span class="text-caption text-medium-emphasis">
+        <span class="text-body-small text-medium-emphasis">
           <v-icon size="14" class="mr-1">{{ $globals.icons.robot }}</v-icon>
           {{ generatedLabel }}
         </span>
@@ -213,7 +213,7 @@
         <div v-if="logsLoading" class="d-flex justify-center py-4">
           <v-progress-circular indeterminate size="24" />
         </div>
-        <p v-else-if="!logs.length" class="text-body-2 text-medium-emphasis ml-2">
+        <p v-else-if="!logs.length" class="text-body-medium text-medium-emphasis ml-2">
           {{ $t("recipe.thermomix.no-logs") }}
         </p>
         <v-expansion-panels v-else variant="accordion">
@@ -223,11 +223,11 @@
                 <v-icon :color="log.status === 'success' ? 'success' : 'error'" size="18">
                   {{ log.status === 'success' ? $globals.icons.checkboxMarkedCircle : $globals.icons.alertCircle }}
                 </v-icon>
-                <span class="text-body-2">{{ formatDate(log.createdAt) }}</span>
+                <span class="text-body-medium">{{ formatDate(log.createdAt) }}</span>
                 <v-chip size="x-small" variant="tonal">
                   {{ formatDuration(log.durationMs) }}
                 </v-chip>
-                <span class="text-caption text-medium-emphasis">
+                <span class="text-body-small text-medium-emphasis">
                   {{ [log.provider, log.model].filter(Boolean).join(" · ") }}
                 </span>
               </div>
@@ -267,17 +267,17 @@
                 type="error"
                 variant="tonal"
                 density="compact"
-                class="mb-3 text-body-2"
+                class="mb-3 text-body-medium"
                 style="white-space: pre-wrap; word-break: break-word;"
               >
                 {{ log.error }}
               </v-alert>
-              <div class="text-subtitle-2 mb-1">
+              <div class="text-title-small mb-1">
                 {{ $t("recipe.thermomix.log-request") }}
               </div>
               <pre class="log-pre mb-3">{{ formatJson(log.request) }}</pre>
               <template v-if="log.response">
-                <div class="text-subtitle-2 mb-1">
+                <div class="text-title-small mb-1">
                   {{ $t("recipe.thermomix.log-response") }}
                 </div>
                 <pre class="log-pre">{{ JSON.stringify(log.response, null, 2) }}</pre>

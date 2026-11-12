@@ -23,7 +23,7 @@
       <v-divider class="mx-2" />
       <div
         v-if="edit"
-        class="asset-drop-zone ma-2 pa-3 d-flex align-center justify-center text-center text-body-2"
+        class="asset-drop-zone ma-2 pa-3 d-flex align-center justify-center text-center text-body-medium"
         :class="{ 'asset-drop-zone--active': dropping }"
         data-testid="asset-drop-zone"
       >

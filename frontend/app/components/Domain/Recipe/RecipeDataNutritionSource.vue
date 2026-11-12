@@ -1,5 +1,5 @@
 <template>
-  <div v-if="source" class="text-body-2" data-testid="nutrition-source">
+  <div v-if="source" class="text-body-medium" data-testid="nutrition-source">
     <div class="d-flex align-center flex-wrap ga-2">
       <v-chip
         size="small"
@@ -21,11 +21,11 @@
       </a>
       <span v-else-if="table && referenceName">{{ referenceName }}</span>
     </div>
-    <div v-if="table" class="pt-1 text-caption text-medium-emphasis" data-testid="nutrition-source-attribution">
+    <div v-if="table" class="pt-1 text-body-small text-medium-emphasis" data-testid="nutrition-source-attribution">
       {{ $t("data-pages.foods.nutrition-source-attribution", { attribution: table.attribution }) }}
       (<a :href="table.licenseUrl" target="_blank" rel="noopener noreferrer">{{ table.license }}</a>)
     </div>
-    <div v-else class="pt-1 text-caption text-medium-emphasis">
+    <div v-else class="pt-1 text-body-small text-medium-emphasis">
       {{ $t("data-pages.foods.nutrition-source-ai-hint") }}
     </div>
   </div>

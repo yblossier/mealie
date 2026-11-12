@@ -54,7 +54,7 @@
             {{ name }}
           </li>
         </ul>
-        <div v-if="unusedToolNamesRemaining > 0" class="text-body-2 pl-2">
+        <div v-if="unusedToolNamesRemaining > 0" class="text-body-medium pl-2">
           {{ $t('data-pages.delete-unused-more', { count: unusedToolNamesRemaining }) }}
         </div>
       </v-card-text>
@@ -81,7 +81,7 @@
     >
       <template #create-dialog-bottom>
         <RecipeToolDetailsFields v-model="createForm.data" :tools="tools" />
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           {{ $t("tool.photo") }}
         </div>
         <RecipeToolPhotoEditor
@@ -93,7 +93,7 @@
 
       <template #edit-dialog-bottom>
         <RecipeToolDetailsFields v-model="editForm.data" :tools="tools" :tool-id="editForm.data.id" />
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           {{ $t("tool.photo") }}
         </div>
         <RecipeToolPhotoEditor
@@ -118,7 +118,7 @@
           <div v-if="dishSizeLabel(item)">
             {{ dishSizeLabel(item) }}
           </div>
-          <div v-if="item.usages?.length" class="text-caption text-medium-emphasis">
+          <div v-if="item.usages?.length" class="text-body-small text-medium-emphasis">
             {{ item.usages.map(usage => $t(`tool.usage-${usage}`)).join(", ") }}
           </div>
         </template>

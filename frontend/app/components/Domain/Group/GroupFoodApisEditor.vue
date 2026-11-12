@@ -1,9 +1,9 @@
 <template>
   <div>
-    <h3 class="text-h6 mb-1">
+    <h3 class="text-title-large mb-1">
       {{ $t("group.open-food-facts-api") }}
     </h3>
-    <p class="text-subtitle-2 mb-3">
+    <p class="text-title-small mb-3">
       {{ $t("group.open-food-facts-api-description") }}
     </p>
     <div class="d-flex flex-wrap ga-3 mb-2">
@@ -30,7 +30,7 @@
         data-testid="off-url"
       />
     </div>
-    <p class="text-caption mb-2">
+    <p class="text-body-small mb-2">
       {{ $t("group.off-app-hint") }}
     </p>
     <div class="d-flex flex-wrap ga-3 mb-6">
@@ -64,10 +64,10 @@
       />
     </div>
 
-    <h3 class="text-h6 mb-1">
+    <h3 class="text-title-large mb-1">
       {{ $t("group.usda-api") }}
     </h3>
-    <p class="text-subtitle-2 mb-1">
+    <p class="text-title-small mb-1">
       {{ $t("group.usda-api-description") }}
     </p>
     <v-checkbox
@@ -107,7 +107,7 @@
         {{ $t("group.usda-api-key-remove") }}
       </v-btn>
     </div>
-    <p class="text-caption mt-1 mb-0">
+    <p class="text-body-small mt-1 mb-0">
       <template v-if="preferences.usdaApiKeySet && preferences.usdaApiKey === ''">
         {{ $t("group.usda-api-key-will-be-removed") }}
       </template>

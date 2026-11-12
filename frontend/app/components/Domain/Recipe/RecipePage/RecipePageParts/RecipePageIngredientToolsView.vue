@@ -13,7 +13,7 @@
       :revision="allergenRevision"
     />
     <div v-if="!isEditMode && recipe.tools && recipe.tools.length > 0">
-      <h2 class="mt-4 text-h5 font-weight-medium opacity-80">
+      <h2 class="mt-4 text-headline-small font-weight-medium opacity-80">
         {{ $t('tool.required-tools') }}
       </h2>
       <v-list density="compact" class="tool-list">

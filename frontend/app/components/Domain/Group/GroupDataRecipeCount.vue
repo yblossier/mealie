@@ -1,5 +1,5 @@
 <template>
-  <v-tooltip location="bottom" open-delay="200" content-class="text-caption">
+  <v-tooltip location="bottom" open-delay="200" content-class="text-body-small">
     <template #activator="{ props: tooltipProps }">
       <v-chip
         v-bind="tooltipProps"

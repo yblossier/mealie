@@ -19,7 +19,7 @@
         </div>
       </div>
     </div>
-    <div class="text-caption text-center text-medium-emphasis mt-1">
+    <div class="text-body-small text-center text-medium-emphasis mt-1">
       {{ $t("recipe.nutrition-badges-caption") }}
     </div>
   </div>

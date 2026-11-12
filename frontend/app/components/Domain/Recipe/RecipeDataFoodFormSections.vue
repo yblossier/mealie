@@ -53,7 +53,7 @@
             </template>
           </v-tooltip>
         </v-chip>
-        <span v-if="!substitutionTags.length" class="text-body-2 text-disabled" data-testid="food-substitutions-empty">
+        <span v-if="!substitutionTags.length" class="text-body-medium text-disabled" data-testid="food-substitutions-empty">
           {{ $t("data-pages.foods.none") }}
         </span>
       </div>
